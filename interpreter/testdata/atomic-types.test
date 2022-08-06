@@ -1,0 +1,8 @@
+/* A C-style comment */
+x: integer;
+y: integer = 123; // A C++ style comment
+b: boolean = false;
+c: char    = 'q';
+s: string  = "hello bminor\n";
+
+print x, y, b, c, s;
