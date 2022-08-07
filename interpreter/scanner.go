@@ -82,7 +82,7 @@ func (s *Scanner) scanToken() error {
 		}
 		s.advance() // advance past the closing "'"
 		value := s.source[s.current-1]
-		s.addTokenWithLiteral(TokenChar, value)
+		s.addTokenWithLiteral(TokenChar, rune(value))
 
 	case '"':
 		for s.peek() != '"' && !s.isAtEnd() {
@@ -157,15 +157,7 @@ func (s *Scanner) number() {
 		s.advance()
 	}
 
-	// look for a fractional part
-	if s.peek() == '.' && s.isDigit(s.peekNext()) {
-		s.advance()
-		for s.isDigit(s.peek()) {
-			s.advance()
-		}
-	}
-
-	val, _ := strconv.ParseFloat(s.source[s.start:s.current], 64)
+	val, _ := strconv.ParseInt(s.source[s.start:s.current], 10, 64)
 	s.addTokenWithLiteral(TokenNumber, val)
 }
 

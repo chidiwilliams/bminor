@@ -5,9 +5,6 @@ import (
 	"io"
 )
 
-type Stmt interface {
-}
-
 type parseError struct {
 	message string
 }
@@ -59,10 +56,6 @@ func (p *Parser) declaration() Stmt {
 	return p.varDecl()
 }
 
-type PrintStmt struct {
-	Expressions []Expr
-}
-
 func (p *Parser) printStmt() Stmt {
 	var expressions []Expr
 
@@ -74,15 +67,6 @@ func (p *Parser) printStmt() Stmt {
 
 	p.consume(TokenSemicolon, "expect semicolon after print statement")
 	return PrintStmt{Expressions: expressions}
-}
-
-type Expr interface {
-}
-
-type VarStmt struct {
-	Name        Token
-	Initializer Expr
-	TypeDecl    Token
 }
 
 func (p *Parser) varDecl() Stmt {
@@ -101,15 +85,7 @@ func (p *Parser) varDecl() Stmt {
 	return VarStmt{Name: name, Initializer: initializer, TypeDecl: typeDecl}
 }
 
-type VariableExpr struct {
-	Name Token
-}
-
-type LiteralExpr struct {
-	Value interface{}
-}
-
-func (p *Parser) primary() Stmt {
+func (p *Parser) primary() Expr {
 	switch {
 	case p.match(TokenIdentifier):
 		return VariableExpr{Name: p.previous()}
@@ -124,7 +100,7 @@ func (p *Parser) primary() Stmt {
 	panic(parseError{message: fmt.Sprintf("expect expression, but got %s", p.peek().Lexeme)})
 }
 
-func (p *Parser) literalExpr(value interface{}) Stmt {
+func (p *Parser) literalExpr(value interface{}) Expr {
 	return LiteralExpr{Value: value}
 }
 

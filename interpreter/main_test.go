@@ -35,7 +35,7 @@ func TestRun(t *testing.T) {
 
 			stdErr := bytes.Buffer{}
 			stdOut := bytes.Buffer{}
-			RunAndReportError(string(source), &stdErr, &stdOut)
+			Run(string(source), &stdErr, &stdOut)
 
 			gotStdErr := stdErr.String()
 			if wantStdErr != gotStdErr {
@@ -59,6 +59,9 @@ func splitWantOutput(output string) (stdOut string, stdErr string) {
 			stdOut += line + "\n"
 		}
 	}
+
+	stdOut = strings.TrimRight(stdOut, "\n")
+	stdErr = strings.TrimRight(stdErr, "\n")
 
 	return
 }
