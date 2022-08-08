@@ -81,7 +81,14 @@ func (s *Scanner) scanToken() error {
 	case ']':
 		s.addToken(TokenRightSquareBracket)
 
+	case '{':
+		s.addToken(TokenLeftBrace)
+
+	case '}':
+		s.addToken(TokenRightBrace)
+
 	case '\'':
+		// TODO: unquote char
 		s.advance()
 		if s.isAtEnd() {
 			return fmt.Errorf("unterminated char")
@@ -101,8 +108,13 @@ func (s *Scanner) scanToken() error {
 			return fmt.Errorf("unterminated string")
 		}
 		s.advance() // advance past the closing '"'
-		value := s.source[s.start+1 : s.current-1]
-		s.addTokenWithLiteral(TokenString, value)
+		rawString := s.source[s.start+1 : s.current-1]
+		unquoted, err := s.unquote(rawString)
+		if err != nil {
+			return err
+		}
+
+		s.addTokenWithLiteral(TokenString, unquoted)
 
 	default:
 		if s.isDigit(char) {
@@ -118,6 +130,10 @@ func (s *Scanner) scanToken() error {
 	}
 
 	return nil
+}
+
+func (s *Scanner) unquote(rawString string) (string, error) {
+	return strconv.Unquote(`"` + rawString + `"`)
 }
 
 func (s *Scanner) peek() rune {

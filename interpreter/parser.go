@@ -25,6 +25,7 @@ Parser grammar:
   typeExpr    => "integer" | "boolean" | "char" | "string"
 	               | "array" "[" NUMBER "]" typeExpr
 	primary     => IDENTIFIER | NUMBER
+	               | "{" primary ( "," primary )* "}"
 */
 
 type Parser struct {
@@ -113,6 +114,14 @@ func (p *Parser) typeExpr() TypeExpr {
 	}
 }
 
+type ArrayExpr struct {
+	Elements []Expr
+}
+
+func (a ArrayExpr) String() string {
+	return fmt.Sprint(a.Elements)
+}
+
 func (p *Parser) primary() Expr {
 	switch {
 	case p.match(TokenIdentifier):
@@ -123,6 +132,18 @@ func (p *Parser) primary() Expr {
 		return p.literalExpr(false)
 	case p.match(TokenTrue):
 		return p.literalExpr(true)
+	case p.match(TokenLeftBrace):
+		elements := make([]Expr, 0)
+		if p.match(TokenRightBrace) {
+			return ArrayExpr{Elements: elements}
+		}
+
+		elements = append(elements, p.primary())
+		for p.match(TokenComma) {
+			elements = append(elements, p.primary())
+		}
+		p.consume(TokenRightBrace, "expect '}' after array literal")
+		return ArrayExpr{Elements: elements}
 	}
 
 	panic(parseError{message: fmt.Sprintf("expect expression, but got %s", p.peek().Lexeme)})

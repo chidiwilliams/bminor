@@ -52,6 +52,12 @@ func (i *Interpreter) interpretExpr(expr Expr) interface{} {
 		return expr.Value
 	case VariableExpr:
 		return i.env[expr.Name.Lexeme]
+	case ArrayExpr:
+		array := make([]interface{}, len(expr.Elements))
+		for j, element := range expr.Elements {
+			array[j] = i.interpretExpr(element)
+		}
+		return array
 	}
 	panic(fmt.Sprintf("unexpected expression type: %s", expr))
 }

@@ -18,7 +18,7 @@ func main() {
 		log.Fatalf("input file not found")
 	}
 
-	Run(string(file), os.Stderr, nil)
+	Run(string(file), os.Stderr, os.Stdout)
 }
 
 func Run(source string, stdErr io.Writer, stdOut io.Writer) {

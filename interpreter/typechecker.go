@@ -133,6 +133,10 @@ func (c *TypeChecker) resolveType(expr Expr) Type {
 			panic(fmt.Sprintf("could not resolve type for expression: %v", expr))
 		}
 		return bMinorType
+	case ArrayExpr:
+		// TODO: handle resolving array types with no elements
+		firstElementType := c.resolveType(expr.Elements[0])
+		return newArrayTypeValue(firstElementType, len(expr.Elements))
 	}
 	panic(fmt.Sprintf("unexpected expression type: %s", expr))
 }

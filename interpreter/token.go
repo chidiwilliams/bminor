@@ -26,6 +26,8 @@ const (
 	TokenTypeIdentifier
 	TokenLeftSquareBracket
 	TokenRightSquareBracket
+	TokenLeftBrace
+	TokenRightBrace
 )
 
 type Token struct {
