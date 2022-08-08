@@ -21,7 +21,9 @@ func NewParser(tokens []Token, stdErr io.Writer) *Parser {
 Parser grammar:
 	declaration => printStmt | varDecl
 	printStmt   => "print" primary ( "," primary )*
-	varDecl     => IDENTIFIER ":" typeDecl ( "=" primary )? ";"
+	varDecl     => IDENTIFIER ":" typeExpr ( "=" primary )? ";"
+  typeExpr    => "integer" | "boolean" | "char" | "string"
+	               | "array" "[" NUMBER "]" typeExpr
 	primary     => IDENTIFIER | NUMBER
 */
 
@@ -73,7 +75,7 @@ func (p *Parser) varDecl() Stmt {
 	name := p.consume(TokenIdentifier, "expect name")
 
 	p.consume(TokenColon, "expect colon after name")
-	typeDecl := p.consume(TokenTypeIdentifier, "expect type declaration after name")
+	typeExpr := p.typeExpr()
 
 	var initializer Expr
 	if p.match(TokenEqual) {
@@ -82,7 +84,33 @@ func (p *Parser) varDecl() Stmt {
 
 	p.consume(TokenSemicolon, "expect semicolon after variable declaration")
 
-	return VarStmt{Name: name, Initializer: initializer, TypeDecl: typeDecl}
+	return VarStmt{Name: name, Initializer: initializer, Type: typeExpr}
+}
+
+func (p *Parser) typeExpr() TypeExpr {
+	typeExpr := p.consume(TokenTypeIdentifier, "expect type expression")
+	switch typeExpr.Lexeme {
+	case "integer":
+		return AtomicTypeExpr{AtomicTypeInteger}
+	case "string":
+		return AtomicTypeExpr{AtomicTypeString}
+	case "char":
+		return AtomicTypeExpr{AtomicTypeChar}
+	case "boolean":
+		return AtomicTypeExpr{AtomicTypeBoolean}
+	case "array":
+		p.consume(TokenLeftSquareBracket, "expect '[' after array type expression")
+		length, ok := p.consume(TokenNumber, "expect length of array type expression").Literal.(int)
+		if !ok {
+			panic(parseError{message: fmt.Sprintf("expect length of array type expression to be an integer")})
+		}
+
+		p.consume(TokenRightSquareBracket, "expect ']' after length of array type expression")
+		elementType := p.typeExpr()
+		return ArrayTypeExpr{Length: length, ElementType: elementType}
+	default:
+		panic(parseError{message: fmt.Sprintf("unexpected type expression: %s", p.previous().Lexeme)})
+	}
 }
 
 func (p *Parser) primary() Expr {

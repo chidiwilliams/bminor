@@ -24,6 +24,8 @@ const (
 	TokenVoid
 	TokenWhile
 	TokenTypeIdentifier
+	TokenLeftSquareBracket
+	TokenRightSquareBracket
 )
 
 type Token struct {

@@ -17,9 +17,9 @@ func (p PrintStmt) String() string {
 type VarStmt struct {
 	Name        Token
 	Initializer Expr
-	TypeDecl    Token
+	Type        TypeExpr
 }
 
 func (v VarStmt) String() string {
-	return fmt.Sprintf("var %s: %s = %s", v.Name.Lexeme, v.TypeDecl.Lexeme, v.Initializer)
+	return fmt.Sprintf("var %s: %s = %s", v.Name.Lexeme, v.Type, v.Initializer)
 }

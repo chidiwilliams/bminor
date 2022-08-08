@@ -75,6 +75,12 @@ func (s *Scanner) scanToken() error {
 	case ',':
 		s.addToken(TokenComma)
 
+	case '[':
+		s.addToken(TokenLeftSquareBracket)
+
+	case ']':
+		s.addToken(TokenRightSquareBracket)
+
 	case '\'':
 		s.advance()
 		if s.isAtEnd() {
@@ -100,7 +106,10 @@ func (s *Scanner) scanToken() error {
 
 	default:
 		if s.isDigit(char) {
-			s.number()
+			err := s.number()
+			if err != nil {
+				return err
+			}
 		} else if s.isAlpha(char) {
 			s.identifier()
 		} else {
@@ -152,13 +161,18 @@ func (s *Scanner) addToken(tokenType TokenType) {
 	s.addTokenWithLiteral(tokenType, nil)
 }
 
-func (s *Scanner) number() {
+func (s *Scanner) number() error {
 	for s.isDigit(s.peek()) {
 		s.advance()
 	}
 
-	val, _ := strconv.ParseInt(s.source[s.start:s.current], 10, 64)
+	val, err := strconv.Atoi(s.source[s.start:s.current])
+	if err != nil {
+		return err
+	}
+
 	s.addTokenWithLiteral(TokenNumber, val)
+	return nil
 }
 
 func (s *Scanner) isAlpha(char rune) bool {

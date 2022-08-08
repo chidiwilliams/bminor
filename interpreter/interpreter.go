@@ -31,7 +31,7 @@ func (i *Interpreter) interpretStatement(stmt Stmt) {
 	case VarStmt:
 		var value interface{}
 		if stmt.Initializer == nil {
-			value = i.typeChecker.getTypeByName(stmt.TypeDecl.Lexeme).ZeroValue()
+			value = i.typeChecker.getType(stmt.Type).ZeroValue()
 		} else {
 			value = i.interpretExpr(stmt.Initializer)
 		}
