@@ -39,7 +39,7 @@ func (t atomicType[UnderlyingGoType]) ZeroValue() interface{} {
 	return t.zeroValue
 }
 
-func newArrayTypeValue(elementType Type, length int) arrayType {
+func newArrayType(elementType Type, length int) arrayType {
 	return arrayType{elementType: elementType, length: length}
 }
 
@@ -49,12 +49,12 @@ type arrayType struct {
 }
 
 func (a arrayType) Equals(other Type) bool {
-	otherArrayTypeValue, ok := other.(arrayType)
+	otherArrayType, ok := other.(arrayType)
 	if !ok {
 		return false
 	}
 
-	return a.elementType.Equals(otherArrayTypeValue.elementType)
+	return a.elementType.Equals(otherArrayType.elementType)
 }
 
 func (a arrayType) ZeroValue() interface{} {
@@ -65,10 +65,45 @@ func (a arrayType) ZeroValue() interface{} {
 	return arr
 }
 
+type anyType struct {
+}
+
+func (a anyType) Equals(other Type) bool {
+	return true
+}
+
+func (a anyType) ZeroValue() interface{} {
+	panic("can't get zero value of any type")
+}
+
+func newMapType(keyType Type, valueType Type) mapType {
+	return mapType{keyType: keyType, valueType: valueType}
+}
+
+type mapType struct {
+	keyType   Type
+	valueType Type
+}
+
+func (m mapType) Equals(other Type) bool {
+	otherMapType, ok := other.(mapType)
+	if !ok {
+		return false
+	}
+
+	return m.keyType.Equals(otherMapType.keyType) &&
+		m.valueType.Equals(otherMapType.valueType)
+}
+
+func (m mapType) ZeroValue() interface{} {
+	return make(map[interface{}]interface{})
+}
+
 var integerType = newAtomicType[int]("integer")
 var booleanType = newAtomicType[bool]("boolean")
 var charType = newAtomicType[rune]("char")
 var stringType = newAtomicType[string]("string")
+var anyTypeType = anyType{}
 
 func NewTypeChecker(statements []Stmt) TypeChecker {
 	return TypeChecker{statements: statements, env: map[string]Type{}}
@@ -108,8 +143,10 @@ func (c *TypeChecker) checkStmt(stmt Stmt) error {
 		for _, expression := range stmt.Expressions {
 			c.resolveType(expression)
 		}
+	case ExprStmt:
+		c.resolveType(stmt.Expr)
 	default:
-		panic(fmt.Sprintf("unexpected statement type: %s", stmt))
+		return fmt.Errorf("unexpected statement type: %s", stmt)
 	}
 	return nil
 }
@@ -134,11 +171,66 @@ func (c *TypeChecker) resolveType(expr Expr) Type {
 		}
 		return bMinorType
 	case ArrayExpr:
-		// TODO: handle resolving array types with no elements
 		firstElementType := c.resolveType(expr.Elements[0])
-		return newArrayTypeValue(firstElementType, len(expr.Elements))
+		for _, element := range expr.Elements[1:] {
+			elementType := c.resolveType(element)
+			if !elementType.Equals(firstElementType) {
+				panic(fmt.Sprintf("expected element to be of type: %s", elementType))
+			}
+		}
+		return newArrayType(firstElementType, len(expr.Elements))
+	case MapExpr:
+		if len(expr.Pairs) == 0 {
+			return newMapType(anyTypeType, anyTypeType)
+		}
+
+		firstPair := expr.Pairs[0]
+		firstKeyType := c.resolveType(firstPair.Key)
+		firstValueType := c.resolveType(firstPair.Value)
+
+		for _, pair := range expr.Pairs[1:] {
+			keyType := c.resolveType(pair.Key)
+			if !keyType.Equals(firstKeyType) {
+				panic(fmt.Sprintf("expected key to be of type: %s", firstKeyType))
+			}
+			valueType := c.resolveType(pair.Value)
+			if !valueType.Equals(firstValueType) {
+				panic(fmt.Sprintf("expected value to be of type: %s", firstValueType))
+			}
+		}
+
+		return newMapType(firstKeyType, firstValueType)
+	case GetExpr:
+		return c.resolveLookup(expr.Object, expr.Name)
+	case SetExpr:
+		expectedValueType := c.resolveLookup(expr.Object, expr.Name)
+		valueType := c.resolveType(expr.Value)
+		if !expectedValueType.Equals(valueType) {
+			panic(fmt.Sprintf("expected value to be of type: %s", expectedValueType))
+		}
+		return expectedValueType
 	}
 	panic(fmt.Sprintf("unexpected expression type: %s", expr))
+}
+
+func (c *TypeChecker) resolveLookup(object, name Expr) Type {
+	objectType := c.resolveType(object)
+	switch objectType := objectType.(type) {
+	case arrayType:
+		nameType := c.resolveType(name)
+		if !nameType.Equals(integerType) {
+			panic(fmt.Sprintf("array index must be an integer"))
+		}
+		return objectType.elementType
+	case mapType:
+		nameType := c.resolveType(name)
+		if !nameType.Equals(objectType.keyType) {
+			panic(fmt.Sprintf("map key must be of type: %s", objectType.keyType))
+		}
+		return objectType.valueType
+	default:
+		panic(fmt.Sprintf("can only index maps and arrays"))
+	}
 }
 
 func (c *TypeChecker) getType(typeExpr TypeExpr) Type {
@@ -156,7 +248,11 @@ func (c *TypeChecker) getType(typeExpr TypeExpr) Type {
 		}
 	case ArrayTypeExpr:
 		elementType := c.getType(typeExpr.ElementType)
-		return newArrayTypeValue(elementType, typeExpr.Length)
+		return newArrayType(elementType, typeExpr.Length)
+	case MapTypeExpr:
+		keyType := c.getType(typeExpr.KeyType)
+		valueType := c.getType(typeExpr.ValueType)
+		return newMapType(keyType, valueType)
 	}
 	panic(fmt.Sprintf("unexpected type: %s", typeExpr))
 }

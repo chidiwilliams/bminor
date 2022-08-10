@@ -61,7 +61,7 @@ func splitWantOutput(output string) (stdOut string, stdErr string) {
 	}
 
 	stdOut = strings.TrimRight(stdOut, "\n")
-	stdErr = strings.TrimRight(stdErr, "\n")
+	// stdErr = strings.TrimRight(stdErr, "\n")
 
 	return
 }

@@ -4,6 +4,4 @@ months: array [12] string = {
     "August","September","October","November","December"
 };
 
-print a;
-print "\n";
-print months;
+print a, "\n", months;

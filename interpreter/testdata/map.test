@@ -1,0 +1,4 @@
+m: map string integer = { "hello" : 5, "goodbye" : 10 };
+print m["hello"], "\n";
+m["farewell"] = 20;
+print m;

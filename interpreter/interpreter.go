@@ -3,7 +3,30 @@ package main
 import (
 	"fmt"
 	"io"
+	"strings"
 )
+
+type Map map[interface{}]interface{}
+
+func (m Map) String() string {
+	pairs := make([]string, 0)
+	for key, value := range m {
+		pairs = append(pairs, fmt.Sprintf("%s: %s", key, value))
+	}
+	return fmt.Sprintf("{ %s }", strings.Join(pairs, ", "))
+}
+
+type Integer int
+
+func (i Integer) String() string {
+	return fmt.Sprintf("%d", i)
+}
+
+type String string
+
+func (s String) String() string {
+	return "\"" + string(s) + "\""
+}
 
 func NewInterpreter(typeChecker *TypeChecker, stdOut io.Writer) *Interpreter {
 	return &Interpreter{
@@ -41,6 +64,8 @@ func (i *Interpreter) interpretStatement(stmt Stmt) {
 			value := i.interpretExpr(expr)
 			_, _ = i.stdOut.Write([]byte(fmt.Sprint(value)))
 		}
+	case ExprStmt:
+		i.interpretExpr(stmt.Expr)
 	default:
 		panic(fmt.Sprintf("unexpected statement type: %s", stmt))
 	}
@@ -49,7 +74,13 @@ func (i *Interpreter) interpretStatement(stmt Stmt) {
 func (i *Interpreter) interpretExpr(expr Expr) interface{} {
 	switch expr := expr.(type) {
 	case LiteralExpr:
-		return expr.Value
+		// TODO: fix from parser
+		switch value := expr.Value.(type) {
+		case int:
+			return Integer(value)
+		default:
+			return expr.Value
+		}
 	case VariableExpr:
 		return i.env[expr.Name.Lexeme]
 	case ArrayExpr:
@@ -58,6 +89,39 @@ func (i *Interpreter) interpretExpr(expr Expr) interface{} {
 			array[j] = i.interpretExpr(element)
 		}
 		return array
+	case MapExpr:
+		mapValue := make(Map)
+		for _, pair := range expr.Pairs {
+			key := i.interpretExpr(pair.Key)
+			value := i.interpretExpr(pair.Value)
+			mapValue[key] = value
+		}
+		return mapValue
+	case SetExpr:
+		objectValue := i.interpretExpr(expr.Object)
+		name := i.interpretExpr(expr.Name)
+		value := i.interpretExpr(expr.Value)
+		if array, ok := objectValue.([]interface{}); ok {
+			if name, ok := name.(int); ok {
+				array[name] = value
+				return value
+			}
+		}
+		if mapValue, ok := objectValue.(Map); ok {
+			mapValue[name] = value
+			return value
+		}
+	case GetExpr:
+		objectValue := i.interpretExpr(expr.Object)
+		name := i.interpretExpr(expr.Name)
+		if array, ok := objectValue.([]interface{}); ok {
+			if name, ok := name.(int); ok {
+				return array[name]
+			}
+		}
+		if mapValue, ok := objectValue.(Map); ok {
+			return mapValue[name]
+		}
 	}
 	panic(fmt.Sprintf("unexpected expression type: %s", expr))
 }
