@@ -5,7 +5,10 @@ import (
 )
 
 type Type interface {
+	// Equals returns true if both types are equal
 	Equals(other Type) bool
+	// ZeroValue returns the default value to be returned when a
+	// variable of this type is declared without explicit initialization
 	ZeroValue() interface{}
 }
 
@@ -131,7 +134,7 @@ func (c *TypeChecker) checkStmt(stmt Stmt) error {
 	case VarStmt:
 		declaredType := c.getType(stmt.Type)
 		if stmt.Initializer != nil {
-			resolvedType := c.resolveType(stmt.Initializer)
+			resolvedType := c.resolveExpr(stmt.Initializer)
 			if !c.equals(resolvedType, declaredType) {
 				return fmt.Errorf("expected value with type %s, but got %s", declaredType, resolvedType)
 			}
@@ -141,17 +144,17 @@ func (c *TypeChecker) checkStmt(stmt Stmt) error {
 		c.env[stmt.Name.Lexeme] = declaredType
 	case PrintStmt:
 		for _, expression := range stmt.Expressions {
-			c.resolveType(expression)
+			c.resolveExpr(expression)
 		}
 	case ExprStmt:
-		c.resolveType(stmt.Expr)
+		c.resolveExpr(stmt.Expr)
 	default:
 		return fmt.Errorf("unexpected statement type: %s", stmt)
 	}
 	return nil
 }
 
-func (c *TypeChecker) resolveType(expr Expr) Type {
+func (c *TypeChecker) resolveExpr(expr Expr) Type {
 	switch expr := expr.(type) {
 	case LiteralExpr:
 		switch expr.Value.(type) {
@@ -171,9 +174,9 @@ func (c *TypeChecker) resolveType(expr Expr) Type {
 		}
 		return bMinorType
 	case ArrayExpr:
-		firstElementType := c.resolveType(expr.Elements[0])
+		firstElementType := c.resolveExpr(expr.Elements[0])
 		for _, element := range expr.Elements[1:] {
-			elementType := c.resolveType(element)
+			elementType := c.resolveExpr(element)
 			if !elementType.Equals(firstElementType) {
 				panic(fmt.Sprintf("expected element to be of type: %s", elementType))
 			}
@@ -185,15 +188,15 @@ func (c *TypeChecker) resolveType(expr Expr) Type {
 		}
 
 		firstPair := expr.Pairs[0]
-		firstKeyType := c.resolveType(firstPair.Key)
-		firstValueType := c.resolveType(firstPair.Value)
+		firstKeyType := c.resolveExpr(firstPair.Key)
+		firstValueType := c.resolveExpr(firstPair.Value)
 
 		for _, pair := range expr.Pairs[1:] {
-			keyType := c.resolveType(pair.Key)
+			keyType := c.resolveExpr(pair.Key)
 			if !keyType.Equals(firstKeyType) {
 				panic(fmt.Sprintf("expected key to be of type: %s", firstKeyType))
 			}
-			valueType := c.resolveType(pair.Value)
+			valueType := c.resolveExpr(pair.Value)
 			if !valueType.Equals(firstValueType) {
 				panic(fmt.Sprintf("expected value to be of type: %s", firstValueType))
 			}
@@ -204,26 +207,79 @@ func (c *TypeChecker) resolveType(expr Expr) Type {
 		return c.resolveLookup(expr.Object, expr.Name)
 	case SetExpr:
 		expectedValueType := c.resolveLookup(expr.Object, expr.Name)
-		valueType := c.resolveType(expr.Value)
+		valueType := c.resolveExpr(expr.Value)
 		if !expectedValueType.Equals(valueType) {
 			panic(fmt.Sprintf("expected value to be of type: %s", expectedValueType))
 		}
 		return expectedValueType
+	case BinaryExpr:
+		left := c.resolveExpr(expr.Left)
+		right := c.resolveExpr(expr.Right)
+		if left.Equals(booleanType) || right.Equals(booleanType) {
+			panic(fmt.Sprintf("cannot perform operation on boolean type"))
+		}
+
+		if !left.Equals(right) {
+			panic(fmt.Sprintf("operands are of different types"))
+		}
+
+		switch expr.Operator.TokenType {
+		case TokenLess, TokenGreater, TokenLessEqual,
+			TokenGreaterEqual, TokenEqualEqual, TokenBangEqual:
+			return booleanType
+		default:
+			if expr.Operator.TokenType == TokenPlus && left.Equals(stringType) {
+				panic(fmt.Sprintf("cannot perform operation on string type"))
+			}
+
+			return integerType
+		}
+	case PrefixExpr:
+		right := c.resolveExpr(expr.Right)
+		switch expr.Operator.TokenType {
+		case TokenMinus:
+			if !right.Equals(integerType) {
+				panic(fmt.Sprintf("must be an integer type"))
+			}
+			return integerType
+		case TokenBang:
+			if !right.Equals(booleanType) {
+				panic(fmt.Sprintf("must be a boolean type"))
+			}
+			return booleanType
+		}
+	case PostfixExpr:
+		left := c.resolveExpr(expr.Left)
+		if !left.Equals(integerType) {
+			panic(fmt.Sprintf("must be an integer type"))
+		}
+		return integerType
+	case LogicalExpr:
+		left := c.resolveExpr(expr.Left)
+		right := c.resolveExpr(expr.Right)
+		if !left.Equals(booleanType) {
+			panic(fmt.Sprintf("must be a boolean type"))
+		}
+		if !left.Equals(right) {
+			panic(fmt.Sprintf("operands are of different types"))
+		}
+		return booleanType
 	}
+
 	panic(fmt.Sprintf("unexpected expression type: %s", expr))
 }
 
 func (c *TypeChecker) resolveLookup(object, name Expr) Type {
-	objectType := c.resolveType(object)
+	objectType := c.resolveExpr(object)
 	switch objectType := objectType.(type) {
 	case arrayType:
-		nameType := c.resolveType(name)
+		nameType := c.resolveExpr(name)
 		if !nameType.Equals(integerType) {
 			panic(fmt.Sprintf("array index must be an integer"))
 		}
 		return objectType.elementType
 	case mapType:
-		nameType := c.resolveType(name)
+		nameType := c.resolveExpr(name)
 		if !nameType.Equals(objectType.keyType) {
 			panic(fmt.Sprintf("map key must be of type: %s", objectType.keyType))
 		}

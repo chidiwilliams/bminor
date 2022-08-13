@@ -1,1 +1,1 @@
-err: Error: expect length of array type expression to be a positive integer
+err: Error at '0' on line 1: expect length of array type expression to be a positive integer

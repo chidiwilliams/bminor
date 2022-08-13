@@ -5,6 +5,15 @@ import (
 	"strconv"
 )
 
+type ScanError struct {
+	line    int
+	message string
+}
+
+func (e *ScanError) Error() string {
+	return fmt.Sprintf("Error on line %d: %s", e.line+1, e.message)
+}
+
 func NewScanner(source string) Scanner {
 	return Scanner{source: source}
 }
@@ -65,33 +74,89 @@ func (s *Scanner) scanToken() error {
 
 	case ':':
 		s.addToken(TokenColon)
-
 	case ';':
 		s.addToken(TokenSemicolon)
-
-	case '=':
-		s.addToken(TokenEqual)
-
 	case ',':
 		s.addToken(TokenComma)
-
 	case '[':
 		s.addToken(TokenLeftSquareBracket)
-
 	case ']':
 		s.addToken(TokenRightSquareBracket)
-
 	case '{':
 		s.addToken(TokenLeftBrace)
-
 	case '}':
 		s.addToken(TokenRightBrace)
+	case '+':
+		if s.match('+') {
+			s.addToken(TokenPlusPlus)
+		} else {
+			s.addToken(TokenPlus)
+		}
+	case '-':
+		if s.match('-') {
+			s.addToken(TokenMinusMinus)
+		} else {
+			s.addToken(TokenMinus)
+		}
+	case '*':
+		s.addToken(TokenStar)
+	case '%':
+		s.addToken(TokenPercent)
+	case '(':
+		s.addToken(TokenLeftParen)
+	case ')':
+		s.addToken(TokenRightParen)
+	case '^':
+		s.addToken(TokenCaret)
+
+	case '|':
+		if s.match('|') {
+			s.addToken(TokenOr)
+			break
+		}
+	case '&':
+		if s.match('&') {
+			s.addToken(TokenAnd)
+			break
+		}
+	case '!':
+		var nextToken TokenType
+		if s.match('=') {
+			nextToken = TokenBangEqual
+		} else {
+			nextToken = TokenBang
+		}
+		s.addToken(nextToken)
+	case '=':
+		var nextToken TokenType
+		if s.match('=') {
+			nextToken = TokenEqualEqual
+		} else {
+			nextToken = TokenEqual
+		}
+		s.addToken(nextToken)
+	case '<':
+		var nextToken TokenType
+		if s.match('=') {
+			nextToken = TokenLessEqual
+		} else {
+			nextToken = TokenLess
+		}
+		s.addToken(nextToken)
+	case '>':
+		var nextToken TokenType
+		if s.match('=') {
+			nextToken = TokenGreaterEqual
+		} else {
+			nextToken = TokenGreater
+		}
+		s.addToken(nextToken)
 
 	case '\'':
 		// TODO: unquote char
 		s.advance()
 		if s.isAtEnd() {
-			return fmt.Errorf("unterminated char")
+			return s.error("unterminated char")
 		}
 		s.advance() // advance past the closing "'"
 		value := s.source[s.current-1]
@@ -105,7 +170,7 @@ func (s *Scanner) scanToken() error {
 			s.advance()
 		}
 		if s.isAtEnd() {
-			return fmt.Errorf("unterminated string")
+			return s.error("unterminated string")
 		}
 		s.advance() // advance past the closing '"'
 		rawString := s.source[s.start+1 : s.current-1]
@@ -125,7 +190,7 @@ func (s *Scanner) scanToken() error {
 		} else if s.isAlpha(char) {
 			s.identifier()
 		} else {
-			return fmt.Errorf("unexpected character: %s", strconv.QuoteRune(char))
+			return s.error(fmt.Sprintf("unexpected character: %s", strconv.QuoteRune(char)))
 		}
 	}
 
@@ -243,4 +308,8 @@ func (s *Scanner) addTokenWithLiteral(tokenType TokenType, literal interface{}) 
 
 func (s *Scanner) isAlphaNumeric(char rune) bool {
 	return s.isAlpha(char) || s.isDigit(char)
+}
+
+func (s *Scanner) error(message string) error {
+	return &ScanError{line: s.line, message: message}
 }

@@ -9,7 +9,6 @@ const (
 	TokenIdentifier
 	TokenSemicolon
 	TokenColon
-	TokenEqual
 	TokenComma
 	TokenChar
 	TokenElse
@@ -24,10 +23,34 @@ const (
 	TokenVoid
 	TokenWhile
 	TokenTypeIdentifier
+
+	TokenPlus
+	TokenMinus
+	TokenStar
+	TokenPercent
+	TokenCaret
+
+	TokenPlusPlus
+	TokenMinusMinus
+
+	TokenOr
+	TokenAnd
+
+	TokenLeftParen
+	TokenRightParen
 	TokenLeftSquareBracket
 	TokenRightSquareBracket
 	TokenLeftBrace
 	TokenRightBrace
+
+	TokenEqual
+	TokenEqualEqual
+	TokenLess
+	TokenLessEqual
+	TokenGreater
+	TokenGreaterEqual
+	TokenBang
+	TokenBangEqual
 )
 
 type Token struct {

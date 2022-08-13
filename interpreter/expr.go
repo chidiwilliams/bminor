@@ -84,6 +84,44 @@ func (a AssignExpr) String() string {
 	return fmt.Sprintf("%s = %s", a.Name.Lexeme, a.Value)
 }
 
+type PrefixExpr struct {
+	Operator Token
+	Right    Expr
+}
+
+func (e PrefixExpr) String() string {
+	return fmt.Sprintf("%s%s", e.Operator.Lexeme, e.Right)
+}
+
+type PostfixExpr struct {
+	Operator Token
+	Left     VariableExpr
+}
+
+func (e PostfixExpr) String() string {
+	return fmt.Sprintf("%s%s", e.Left, e.Operator.Lexeme)
+}
+
+type BinaryExpr struct {
+	Left     Expr
+	Right    Expr
+	Operator Token
+}
+
+func (b BinaryExpr) String() string {
+	return fmt.Sprintf("%s %s %s", b.Left, b.Operator.Lexeme, b.Right)
+}
+
+type LogicalExpr struct {
+	Left     Expr
+	Right    Expr
+	Operator Token
+}
+
+func (l LogicalExpr) String() string {
+	return fmt.Sprintf("%s %s %s", l.Left, l.Operator.Lexeme, l.Right)
+}
+
 type TypeExpr interface {
 	Expr
 }

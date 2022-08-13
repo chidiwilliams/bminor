@@ -1,0 +1,8 @@
+a: integer = 1 + 4 - -89 / 3 / 4 * 4 - 2;
+b: integer = 37 % 89 + (47 - 36) * 3 - 80 ^ 3;
+c: boolean = (a <= 1) || (b <= 3) && (a < b);
+d: boolean = c || a >= b;
+e: boolean = b != b - 1;
+f: boolean = a++ < b--;
+
+print a, b, c, d, e, f, "\n";

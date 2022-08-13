@@ -6,6 +6,14 @@ import (
 	"strings"
 )
 
+type runtimeError struct {
+	message string
+}
+
+func (r runtimeError) Error() string {
+	return fmt.Sprintf("error: %s", r.message)
+}
+
 type Map map[interface{}]interface{}
 
 func (m Map) String() string {
@@ -42,7 +50,16 @@ type Interpreter struct {
 	stdOut      io.Writer
 }
 
-func (i *Interpreter) Interpret(statements []Stmt) error {
+func (i *Interpreter) Interpret(statements []Stmt) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			if recovered, ok := r.(runtimeError); ok {
+				err = recovered
+			} else {
+				panic(err)
+			}
+		}
+	}()
 	for _, statement := range statements {
 		i.interpretStatement(statement)
 	}
@@ -122,6 +139,65 @@ func (i *Interpreter) interpretExpr(expr Expr) interface{} {
 		if mapValue, ok := objectValue.(Map); ok {
 			return mapValue[name]
 		}
+	case BinaryExpr:
+		left := i.interpretExpr(expr.Left)
+		right := i.interpretExpr(expr.Right)
+		switch expr.Operator.TokenType {
+		case TokenPlus:
+			return left.(Integer) + right.(Integer)
+		case TokenMinus:
+			return left.(Integer) - right.(Integer)
+		case TokenStar:
+			return left.(Integer) * right.(Integer)
+		case TokenSlash:
+			return left.(Integer) / right.(Integer)
+		case TokenPercent:
+			return left.(Integer) % right.(Integer)
+		case TokenCaret:
+			return left.(Integer) ^ right.(Integer)
+		case TokenLess:
+			return left.(Integer) < right.(Integer)
+		case TokenLessEqual:
+			return left.(Integer) <= right.(Integer)
+		case TokenGreater:
+			return left.(Integer) > right.(Integer)
+		case TokenGreaterEqual:
+			return left.(Integer) >= right.(Integer)
+		case TokenEqualEqual:
+			return left == right
+		case TokenBangEqual:
+			return left != right
+		}
+	case PrefixExpr:
+		right := i.interpretExpr(expr.Right)
+		switch expr.Operator.TokenType {
+		case TokenMinus:
+			return -right.(Integer)
+		}
+	case LogicalExpr:
+		left := i.interpretExpr(expr.Left)
+		right := i.interpretExpr(expr.Right)
+		switch expr.Operator.TokenType {
+		case TokenOr:
+			return left.(bool) || right.(bool)
+		case TokenAnd:
+			return left.(bool) && right.(bool)
+		}
+	case PostfixExpr:
+		name := expr.Left.Name.Lexeme
+		val := i.env[name].(Integer)
+		switch expr.Operator.TokenType {
+		case TokenPlusPlus:
+			i.env[name] = val + 1
+			return val
+		case TokenMinusMinus:
+			i.env[name] = val - 1
+			return val
+		}
 	}
-	panic(fmt.Sprintf("unexpected expression type: %s", expr))
+	panic(i.error(fmt.Sprintf("unexpected expression type: %s", expr)))
+}
+
+func (i *Interpreter) error(message string) error {
+	return runtimeError{message: message}
 }

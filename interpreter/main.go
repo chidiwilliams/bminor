@@ -25,14 +25,14 @@ func Run(source string, stdErr io.Writer, stdOut io.Writer) {
 	scanner := NewScanner(source)
 	tokens, err := scanner.ScanTokens()
 	if err != nil {
-		_, _ = stdErr.Write([]byte(fmt.Sprintf("Error: %s\n", err.Error())))
+		_, _ = stdErr.Write([]byte(err.Error() + "\n"))
 		return
 	}
 
 	parser := NewParser(tokens, stdErr)
 	statements, err := parser.Parse()
 	if err != nil {
-		_, _ = stdErr.Write([]byte(fmt.Sprintf("Error: %s\n", err.Error())))
+		_, _ = stdErr.Write([]byte(err.Error() + "\n"))
 		return
 	}
 

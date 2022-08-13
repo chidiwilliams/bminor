@@ -3,13 +3,18 @@ package main
 import (
 	"fmt"
 	"io"
+	"strconv"
 )
 
 type parseError struct {
 	message string
+	token   Token
 }
 
 func (p parseError) Error() string {
+	if p.token.Lexeme != "" {
+		return fmt.Sprintf("Error at '%s' on line %d: %s", p.token.Lexeme, p.token.Line+1, p.message)
+	}
 	return p.message
 }
 
@@ -27,10 +32,19 @@ Parser grammar:
 	               | "array" "[" NUMBER "]" typeExpr
 	exprStmt    => expression ";"
   expression  => assignment
-	assignment  => subscript "=" assignment
-	subscript   => primary ("[" expression "]" )*
+	assignment  => subscript "=" assignment | or
+	or          => and ( "||" and )*
+	and         => comparison ( "&&" comparison )*
+	comparison  => term ( ( "<" | ">" | ">=" | "<=" | "==" | "!=" ) term )*
+	term        => factor ( ( "+" | "-" ) factor )*
+	factor      => exponent ( ( "*" | "/" | "%" ) exponent )*
+	exponent    => unary ( "^" exponent )*
+	unary       => ( "-" | "!" ) unary | postfix
+	postfix     => subscript ( "++" | "--" )?
+	subscript   => primary ( "[" expression "]" )*
 	primary     => IDENTIFIER | NUMBER | CHAR | STRING | "false" | "true"
-	               | "{" expression ( "," expression )* "}"
+	               | MAP
+	MAP         => "{" expression ( "," expression )* "}"
 */
 
 type Parser struct {
@@ -116,7 +130,7 @@ func (p *Parser) typeExpr() TypeExpr {
 		p.consume(TokenLeftSquareBracket, "expect '[' after array type expression")
 		length, ok := p.consume(TokenNumber, "expect length of array type expression").Literal.(int)
 		if !ok || length == 0 {
-			panic(parseError{message: fmt.Sprintf("expect length of array type expression to be a positive integer")})
+			panic(p.error("expect length of array type expression to be a positive integer"))
 		}
 
 		p.consume(TokenRightSquareBracket, "expect ']' after length of array type expression")
@@ -136,7 +150,7 @@ func (p *Parser) expression() Expr {
 }
 
 func (p *Parser) assignment() Expr {
-	expr := p.subscript()
+	expr := p.or()
 
 	if p.match(TokenEqual) {
 		value := p.assignment()
@@ -150,6 +164,89 @@ func (p *Parser) assignment() Expr {
 		panic(parseError{message: fmt.Sprintf("invalid assignment target")})
 	}
 
+	return expr
+}
+
+func (p *Parser) or() Expr {
+	expr := p.and()
+	for p.match(TokenOr) {
+		operator := p.previous()
+		right := p.and()
+		expr = LogicalExpr{Left: expr, Right: right, Operator: operator}
+	}
+	return expr
+}
+
+func (p *Parser) and() Expr {
+	expr := p.comparison()
+	for p.match(TokenAnd) {
+		operator := p.previous()
+		right := p.comparison()
+		expr = LogicalExpr{Left: expr, Operator: operator, Right: right}
+	}
+	return expr
+}
+
+func (p *Parser) comparison() Expr {
+	expr := p.term()
+	for p.match(TokenLess, TokenLessEqual, TokenGreater,
+		TokenGreaterEqual, TokenEqualEqual, TokenBangEqual) {
+		operator := p.previous()
+		right := p.term()
+		expr = BinaryExpr{Left: expr, Right: right, Operator: operator}
+	}
+	return expr
+}
+
+func (p *Parser) term() Expr {
+	expr := p.factor()
+	for p.match(TokenPlus, TokenMinus) {
+		operator := p.previous()
+		right := p.factor()
+		expr = BinaryExpr{Left: expr, Right: right, Operator: operator}
+	}
+	return expr
+}
+
+func (p *Parser) factor() Expr {
+	expr := p.exponent()
+	for p.match(TokenStar, TokenSlash, TokenPercent) {
+		operator := p.previous()
+		right := p.exponent()
+		expr = BinaryExpr{Left: expr, Right: right, Operator: operator}
+	}
+	return expr
+}
+
+func (p *Parser) exponent() Expr {
+	expr := p.unary()
+	if p.match(TokenCaret) {
+		operator := p.previous()
+		right := p.exponent()
+		return BinaryExpr{Left: expr, Right: right, Operator: operator}
+	}
+	return expr
+}
+
+func (p *Parser) unary() Expr {
+	if p.match(TokenMinus, TokenBang) {
+		operator := p.previous()
+		right := p.unary()
+		return PrefixExpr{Operator: operator, Right: right}
+	}
+	return p.postfix()
+}
+
+func (p *Parser) postfix() Expr {
+	expr := p.subscript()
+	if p.match(TokenPlusPlus, TokenMinusMinus) {
+		expr, ok := expr.(VariableExpr)
+		if !ok {
+			panic(p.error("invalid left-hand side expression in postfix operation"))
+		}
+		operator := p.previous()
+		return PostfixExpr{Operator: operator, Left: expr}
+	}
 	return expr
 }
 
@@ -201,9 +298,13 @@ func (p *Parser) primary() Expr {
 		}
 		p.consume(TokenRightBrace, "expect '}' after array literal")
 		return ArrayExpr{Elements: elements}
+	case p.match(TokenLeftParen):
+		expr := p.expression()
+		p.consume(TokenRightParen, "expect ')' after expression")
+		return expr
 	}
 
-	panic(parseError{message: fmt.Sprintf("expect expression, but got %s", p.peek().Lexeme)})
+	panic(p.error("expect expression"))
 }
 
 func (p *Parser) literalExpr(value interface{}) Expr {
@@ -252,5 +353,9 @@ func (p *Parser) consume(tokenType TokenType, message string) Token {
 	if p.check(tokenType) {
 		return p.advance()
 	}
-	panic(parseError{message: fmt.Sprintf("Error at line %d: %s", p.peek().Line+1, message)})
+	panic(parseError{message: fmt.Sprintf("Error at %s on line %d: %s", strconv.Quote(p.peek().Lexeme), p.peek().Line+1, message)})
+}
+
+func (p *Parser) error(message string) error {
+	return parseError{token: p.previous(), message: message}
 }
