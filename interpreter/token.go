@@ -58,5 +58,5 @@ type Token struct {
 	Line      int
 	Lexeme    string
 	Start     int
-	Literal   interface{}
+	Literal   Value
 }

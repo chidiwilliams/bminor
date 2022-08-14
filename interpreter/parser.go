@@ -128,14 +128,14 @@ func (p *Parser) typeExpr() TypeExpr {
 		return AtomicTypeExpr{AtomicTypeBoolean}
 	case "array":
 		p.consume(TokenLeftSquareBracket, "expect '[' after array type expression")
-		length, ok := p.consume(TokenNumber, "expect length of array type expression").Literal.(int)
+		length, ok := p.consume(TokenNumber, "expect length of array type expression").Literal.(Integer)
 		if !ok || length == 0 {
 			panic(p.error("expect length of array type expression to be a positive integer"))
 		}
 
 		p.consume(TokenRightSquareBracket, "expect ']' after length of array type expression")
 		elementType := p.typeExpr()
-		return ArrayTypeExpr{Length: length, ElementType: elementType}
+		return ArrayTypeExpr{Length: int(length), ElementType: elementType}
 	case "map":
 		keyType := p.typeExpr()
 		valueType := p.typeExpr()
@@ -267,9 +267,9 @@ func (p *Parser) primary() Expr {
 	case p.match(TokenNumber, TokenChar, TokenString):
 		return p.literalExpr(p.previous().Literal)
 	case p.match(TokenFalse):
-		return p.literalExpr(false)
+		return p.literalExpr(Boolean(false))
 	case p.match(TokenTrue):
-		return p.literalExpr(true)
+		return p.literalExpr(Boolean(true))
 	case p.match(TokenLeftBrace):
 		if p.match(TokenRightBrace) {
 			return MapExpr{}
@@ -307,7 +307,7 @@ func (p *Parser) primary() Expr {
 	panic(p.error("expect expression"))
 }
 
-func (p *Parser) literalExpr(value interface{}) Expr {
+func (p *Parser) literalExpr(value Value) Expr {
 	return LiteralExpr{Value: value}
 }
 

@@ -9,17 +9,17 @@ type Type interface {
 	Equals(other Type) bool
 	// ZeroValue returns the default value to be returned when a
 	// variable of this type is declared without explicit initialization
-	ZeroValue() interface{}
+	ZeroValue() Value
 }
 
 // newAtomicType returns a new atomic type based on an underlying Go type.
-func newAtomicType[UnderlyingGoType any](name string) Type {
+func newAtomicType[UnderlyingGoType Value](name string) Type {
 	return atomicType[UnderlyingGoType]{name: name}
 }
 
 // atomicType represents one of the four atomic types
 // in B-minor: "string", "boolean", "char", and "integer".
-type atomicType[UnderlyingGoType any] struct {
+type atomicType[UnderlyingGoType Value] struct {
 	name      string
 	zeroValue UnderlyingGoType
 }
@@ -38,7 +38,7 @@ func (t atomicType[UnderlyingGoType]) Equals(other Type) bool {
 //
 // The zero value of an atomic type is the zero value of
 // its underlying Go type.
-func (t atomicType[UnderlyingGoType]) ZeroValue() interface{} {
+func (t atomicType[UnderlyingGoType]) ZeroValue() Value {
 	return t.zeroValue
 }
 
@@ -60,8 +60,8 @@ func (a arrayType) Equals(other Type) bool {
 	return a.elementType.Equals(otherArrayType.elementType)
 }
 
-func (a arrayType) ZeroValue() interface{} {
-	arr := make([]interface{}, a.length)
+func (a arrayType) ZeroValue() Value {
+	arr := Array(make([]Value, a.length))
 	for i := 0; i < a.length; i++ {
 		arr[i] = a.elementType.ZeroValue()
 	}
@@ -75,7 +75,7 @@ func (a anyType) Equals(other Type) bool {
 	return true
 }
 
-func (a anyType) ZeroValue() interface{} {
+func (a anyType) ZeroValue() Value {
 	panic("can't get zero value of any type")
 }
 
@@ -98,14 +98,14 @@ func (m mapType) Equals(other Type) bool {
 		m.valueType.Equals(otherMapType.valueType)
 }
 
-func (m mapType) ZeroValue() interface{} {
-	return make(map[interface{}]interface{})
+func (m mapType) ZeroValue() Value {
+	return Map{}
 }
 
-var integerType = newAtomicType[int]("integer")
-var booleanType = newAtomicType[bool]("boolean")
-var charType = newAtomicType[rune]("char")
-var stringType = newAtomicType[string]("string")
+var integerType = newAtomicType[Integer]("integer")
+var booleanType = newAtomicType[Boolean]("boolean")
+var charType = newAtomicType[Char]("char")
+var stringType = newAtomicType[String]("string")
 var anyTypeType = anyType{}
 
 func NewTypeChecker(statements []Stmt) TypeChecker {
@@ -158,13 +158,13 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 	switch expr := expr.(type) {
 	case LiteralExpr:
 		switch expr.Value.(type) {
-		case int:
+		case Integer:
 			return integerType
-		case bool:
+		case Boolean:
 			return booleanType
-		case rune:
+		case Char:
 			return charType
-		case string:
+		case String:
 			return stringType
 		}
 	case VariableExpr:

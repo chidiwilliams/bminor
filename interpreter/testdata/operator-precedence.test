@@ -5,4 +5,4 @@ d: boolean = c || a >= b;
 e: boolean = b != b - 1;
 f: boolean = a++ < b--;
 
-print a, b, c, d, e, f, "\n";
+print a, b, c, d, e, f;

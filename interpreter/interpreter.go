@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"strings"
 )
 
 type runtimeError struct {
@@ -14,38 +13,16 @@ func (r runtimeError) Error() string {
 	return fmt.Sprintf("error: %s", r.message)
 }
 
-type Map map[interface{}]interface{}
-
-func (m Map) String() string {
-	pairs := make([]string, 0)
-	for key, value := range m {
-		pairs = append(pairs, fmt.Sprintf("%s: %s", key, value))
-	}
-	return fmt.Sprintf("{ %s }", strings.Join(pairs, ", "))
-}
-
-type Integer int
-
-func (i Integer) String() string {
-	return fmt.Sprintf("%d", i)
-}
-
-type String string
-
-func (s String) String() string {
-	return "\"" + string(s) + "\""
-}
-
 func NewInterpreter(typeChecker *TypeChecker, stdOut io.Writer) *Interpreter {
 	return &Interpreter{
-		env:         map[string]interface{}{},
+		env:         map[string]Value{},
 		typeChecker: typeChecker,
 		stdOut:      stdOut,
 	}
 }
 
 type Interpreter struct {
-	env         map[string]interface{}
+	env         map[string]Value
 	typeChecker *TypeChecker // should this be passed in this way. or should it work similar to the resolved locals in Lox
 	stdOut      io.Writer
 }
@@ -69,7 +46,7 @@ func (i *Interpreter) Interpret(statements []Stmt) (err error) {
 func (i *Interpreter) interpretStatement(stmt Stmt) {
 	switch stmt := stmt.(type) {
 	case VarStmt:
-		var value interface{}
+		var value Value
 		if stmt.Initializer == nil {
 			value = i.typeChecker.getType(stmt.Type).ZeroValue()
 		} else {
@@ -88,24 +65,18 @@ func (i *Interpreter) interpretStatement(stmt Stmt) {
 	}
 }
 
-func (i *Interpreter) interpretExpr(expr Expr) interface{} {
+func (i *Interpreter) interpretExpr(expr Expr) Value {
 	switch expr := expr.(type) {
 	case LiteralExpr:
-		// TODO: fix from parser
-		switch value := expr.Value.(type) {
-		case int:
-			return Integer(value)
-		default:
-			return expr.Value
-		}
+		return expr.Value
 	case VariableExpr:
 		return i.env[expr.Name.Lexeme]
 	case ArrayExpr:
-		array := make([]interface{}, len(expr.Elements))
+		array := make([]Value, len(expr.Elements))
 		for j, element := range expr.Elements {
 			array[j] = i.interpretExpr(element)
 		}
-		return array
+		return Array(array)
 	case MapExpr:
 		mapValue := make(Map)
 		for _, pair := range expr.Pairs {
@@ -118,8 +89,8 @@ func (i *Interpreter) interpretExpr(expr Expr) interface{} {
 		objectValue := i.interpretExpr(expr.Object)
 		name := i.interpretExpr(expr.Name)
 		value := i.interpretExpr(expr.Value)
-		if array, ok := objectValue.([]interface{}); ok {
-			if name, ok := name.(int); ok {
+		if array, ok := objectValue.(Array); ok {
+			if name, ok := name.(Integer); ok {
 				array[name] = value
 				return value
 			}
@@ -131,8 +102,8 @@ func (i *Interpreter) interpretExpr(expr Expr) interface{} {
 	case GetExpr:
 		objectValue := i.interpretExpr(expr.Object)
 		name := i.interpretExpr(expr.Name)
-		if array, ok := objectValue.([]interface{}); ok {
-			if name, ok := name.(int); ok {
+		if array, ok := objectValue.(Array); ok {
+			if name, ok := name.(Integer); ok {
 				return array[name]
 			}
 		}
@@ -156,17 +127,17 @@ func (i *Interpreter) interpretExpr(expr Expr) interface{} {
 		case TokenCaret:
 			return left.(Integer) ^ right.(Integer)
 		case TokenLess:
-			return left.(Integer) < right.(Integer)
+			return Boolean(left.(Integer) < right.(Integer))
 		case TokenLessEqual:
-			return left.(Integer) <= right.(Integer)
+			return Boolean(left.(Integer) <= right.(Integer))
 		case TokenGreater:
-			return left.(Integer) > right.(Integer)
+			return Boolean(left.(Integer) > right.(Integer))
 		case TokenGreaterEqual:
-			return left.(Integer) >= right.(Integer)
+			return Boolean(left.(Integer) >= right.(Integer))
 		case TokenEqualEqual:
-			return left == right
+			return Boolean(left == right)
 		case TokenBangEqual:
-			return left != right
+			return Boolean(left != right)
 		}
 	case PrefixExpr:
 		right := i.interpretExpr(expr.Right)
@@ -179,9 +150,9 @@ func (i *Interpreter) interpretExpr(expr Expr) interface{} {
 		right := i.interpretExpr(expr.Right)
 		switch expr.Operator.TokenType {
 		case TokenOr:
-			return left.(bool) || right.(bool)
+			return left.(Boolean) || right.(Boolean)
 		case TokenAnd:
-			return left.(bool) && right.(bool)
+			return left.(Boolean) && right.(Boolean)
 		}
 	case PostfixExpr:
 		name := expr.Left.Name.Lexeme

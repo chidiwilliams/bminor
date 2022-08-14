@@ -18,7 +18,7 @@ func (v VariableExpr) String() string {
 }
 
 type LiteralExpr struct {
-	Value interface{}
+	Value Value
 }
 
 func (l LiteralExpr) String() string {
@@ -90,7 +90,7 @@ type PrefixExpr struct {
 }
 
 func (e PrefixExpr) String() string {
-	return fmt.Sprintf("%s%s", e.Operator.Lexeme, e.Right)
+	return fmt.Sprintf("(%s%s)", e.Operator.Lexeme, e.Right)
 }
 
 type PostfixExpr struct {
@@ -99,7 +99,7 @@ type PostfixExpr struct {
 }
 
 func (e PostfixExpr) String() string {
-	return fmt.Sprintf("%s%s", e.Left, e.Operator.Lexeme)
+	return fmt.Sprintf("(%s%s)", e.Left, e.Operator.Lexeme)
 }
 
 type BinaryExpr struct {
@@ -109,7 +109,7 @@ type BinaryExpr struct {
 }
 
 func (b BinaryExpr) String() string {
-	return fmt.Sprintf("%s %s %s", b.Left, b.Operator.Lexeme, b.Right)
+	return fmt.Sprintf("(%s %s %s)", b.Left, b.Operator.Lexeme, b.Right)
 }
 
 type LogicalExpr struct {
@@ -119,7 +119,7 @@ type LogicalExpr struct {
 }
 
 func (l LogicalExpr) String() string {
-	return fmt.Sprintf("%s %s %s", l.Left, l.Operator.Lexeme, l.Right)
+	return fmt.Sprintf("(%s %s %s)", l.Left, l.Operator.Lexeme, l.Right)
 }
 
 type TypeExpr interface {
