@@ -14,7 +14,6 @@ const (
 	TokenElse
 	TokenFalse
 	TokenFor
-	TokenFunction
 	TokenIf
 	TokenPrint
 	TokenReturn

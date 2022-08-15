@@ -75,12 +75,14 @@ func (p *Parser) declaration() Stmt {
 	if p.match(TokenPrint) {
 		return p.printStmt()
 	}
-
 	if p.match(TokenIf) {
 		return p.ifStmt()
 	}
 	if p.match(TokenLeftBrace) {
 		return p.blockStmt()
+	}
+	if p.match(TokenReturn) {
+		return p.returnStmt()
 	}
 
 	return p.exprStmt()
@@ -110,7 +112,7 @@ func (p *Parser) ifStmt() Stmt {
 func (p *Parser) blockStmt() Stmt {
 	statements := make([]Stmt, 0)
 
-	for !p.match(TokenRightBrace) {
+	for !p.match(TokenRightBrace) && !p.isAtEnd() {
 		stmt := p.declaration()
 		statements = append(statements, stmt)
 	}
@@ -129,12 +131,29 @@ func (p *Parser) exprStmt() Stmt {
 	return ExprStmt{Expr: expr}
 }
 
+func (p *Parser) returnStmt() Stmt {
+	var value Value
+	if p.match(TokenColon) {
+		value = nil
+	} else {
+		value = p.expression()
+	}
+
+	p.consume(TokenSemicolon, "expect semicolon after return statement")
+
+	return ReturnStmt{Value: value}
+}
+
 func (p *Parser) varDecl(name Token) Stmt {
 	typeExpr := p.typeExpr()
 
 	var initializer Expr
 	if p.match(TokenEqual) {
-		initializer = p.expression()
+		if functionTypeExpr, ok := typeExpr.(FunctionTypeExpr); ok {
+			return p.function(name, functionTypeExpr)
+		} else {
+			initializer = p.expression()
+		}
 	}
 
 	p.consume(TokenSemicolon, "expect semicolon after variable declaration")
@@ -166,9 +185,39 @@ func (p *Parser) typeExpr() TypeExpr {
 		keyType := p.typeExpr()
 		valueType := p.typeExpr()
 		return MapTypeExpr{KeyType: keyType, ValueType: valueType}
+	case "function":
+		returnType := p.typeExpr()
+		p.consume(TokenLeftParen, "expect '(' before function parameters")
+
+		params := make([]ParamTypeExpr, 0)
+		for !p.match(TokenRightParen) {
+			name := p.consume(TokenIdentifier, "expect function parameter")
+			p.consume(TokenColon, "expect ':' after function parameter")
+			paramType := p.typeExpr()
+			params = append(params, ParamTypeExpr{Name: name, Type: paramType})
+		}
+
+		return FunctionTypeExpr{Params: params, ReturnType: returnType}
 	default:
 		panic(parseError{message: fmt.Sprintf("unexpected type expression: %s", p.previous().Lexeme)})
 	}
+}
+
+func (p *Parser) function(name Token, functionTypeExpr FunctionTypeExpr) Stmt {
+	p.consume(TokenLeftBrace, "expect '{' before function body")
+
+	params := make([]Token, len(functionTypeExpr.Params))
+	for i, param := range functionTypeExpr.Params {
+		params[i] = param.Name
+	}
+
+	statements := make([]Stmt, 0)
+	for !p.match(TokenRightBrace) && !p.isAtEnd() {
+		stmt := p.declaration()
+		statements = append(statements, stmt)
+	}
+
+	return FunctionStmt{Name: name, TypeExpr: functionTypeExpr, Body: statements}
 }
 
 func (p *Parser) expression() Expr {
@@ -278,10 +327,25 @@ func (p *Parser) postfix() Expr {
 
 func (p *Parser) subscript() Expr {
 	expr := p.primary()
-	for p.match(TokenLeftSquareBracket) {
-		index := p.expression()
-		expr = GetExpr{Object: expr, Name: index}
-		p.consume(TokenRightSquareBracket, "expect ']' after array subscript")
+	for {
+		if p.match(TokenLeftSquareBracket) {
+			index := p.expression()
+			expr = GetExpr{Object: expr, Name: index}
+			p.consume(TokenRightSquareBracket, "expect ']' after array subscript")
+		} else if p.match(TokenLeftParen) {
+			args := make([]Expr, 0)
+			for {
+				argument := p.expression()
+				args = append(args, argument)
+				if !p.match(TokenComma) {
+					break
+				}
+			}
+			paren := p.consume(TokenRightParen, "expect ')' after arguments")
+			return CallExpr{Callee: expr, Paren: paren, Arguments: args}
+		} else {
+			break
+		}
 	}
 	return expr
 }

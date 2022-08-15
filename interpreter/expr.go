@@ -25,7 +25,6 @@ func (l LiteralExpr) String() string {
 	return fmt.Sprint(l.Value)
 }
 
-// TOOD: shouldn't this just be a literal expr with a map/array value
 type ArrayExpr struct {
 	Elements []Expr
 }
@@ -122,6 +121,20 @@ func (l LogicalExpr) String() string {
 	return fmt.Sprintf("%s %s %s", l.Left, l.Operator.Lexeme, l.Right)
 }
 
+type CallExpr struct {
+	Callee    Expr
+	Paren     Token
+	Arguments []Expr
+}
+
+func (c CallExpr) String() string {
+	args := make([]string, len(c.Arguments))
+	for i, arg := range c.Arguments {
+		args[i] = arg.String()
+	}
+	return fmt.Sprintf("%s(%s)", c.Callee, strings.Join(args, ", "))
+}
+
 type TypeExpr interface {
 	Expr
 }
@@ -170,4 +183,26 @@ type MapTypeExpr struct {
 
 func (m MapTypeExpr) String() string {
 	return fmt.Sprintf("map %s %s", m.KeyType, m.ValueType)
+}
+
+type ParamTypeExpr struct {
+	Name Token
+	Type TypeExpr
+}
+
+func (p ParamTypeExpr) String() string {
+	return fmt.Sprintf("%s: %s", p.Name.Lexeme, p.Type)
+}
+
+type FunctionTypeExpr struct {
+	Params     []ParamTypeExpr
+	ReturnType TypeExpr
+}
+
+func (f FunctionTypeExpr) String() string {
+	params := make([]string, len(f.Params))
+	for i, param := range f.Params {
+		params[i] = param.String()
+	}
+	return fmt.Sprintf("function %s ( %s )", f.ReturnType, strings.Join(params, ", "))
 }

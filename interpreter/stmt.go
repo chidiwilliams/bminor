@@ -1,6 +1,9 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type Stmt interface {
 	fmt.Stringer
@@ -52,4 +55,33 @@ type IfStmt struct {
 
 func (i IfStmt) String() string {
 	return fmt.Sprintf("if (%s) {\n%s\n}", i.Condition, i.Body)
+}
+
+type ReturnStmt struct {
+	Value Value
+}
+
+func (r ReturnStmt) String() string {
+	return fmt.Sprintf("return %s;", r.Value)
+}
+
+type FunctionStmt struct {
+	Body     []Stmt
+	TypeExpr FunctionTypeExpr
+	Name     Token
+}
+
+func (f FunctionStmt) String() string {
+	params := make([]string, len(f.TypeExpr.Params))
+	for i, param := range f.TypeExpr.Params {
+		params[i] = param.String()
+	}
+
+	body := make([]string, len(f.Body))
+	for i, stmt := range f.Body {
+		body[i] = stmt.String()
+	}
+
+	return fmt.Sprintf("%s: function %s ( %s ) {\n%s}",
+		f.Name.Lexeme, f.TypeExpr.ReturnType, strings.Join(params, ", "), strings.Join(body, "\n"))
 }

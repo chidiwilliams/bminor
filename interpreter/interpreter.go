@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"math"
 )
 
 type runtimeError struct {
@@ -72,6 +73,16 @@ func (i *Interpreter) interpretStatement(stmt Stmt) {
 			i.interpretStatement(stmt)
 		}
 		i.endScope()
+	case FunctionStmt:
+		params := make([]string, len(stmt.TypeExpr.Params))
+		for i, param := range stmt.TypeExpr.Params {
+			params[i] = param.Name.Lexeme
+		}
+		fnValue := &Function{Params: params, Body: stmt.Body}
+		i.env.Define(stmt.Name.Lexeme, fnValue)
+	case ReturnStmt:
+		value := i.interpretExpr(stmt.Value)
+		panic(Return{Value: value})
 	default:
 		panic(i.error("unexpected statement type: %s", stmt))
 	}
@@ -137,7 +148,7 @@ func (i *Interpreter) interpretExpr(expr Expr) Value {
 		case TokenPercent:
 			return left.(Integer) % right.(Integer)
 		case TokenCaret:
-			return left.(Integer) ^ right.(Integer)
+			return Integer(int(math.Pow(float64(left.(Integer)), float64(right.(Integer)))))
 		case TokenLess:
 			return Boolean(left.(Integer) < right.(Integer))
 		case TokenLessEqual:
@@ -182,6 +193,14 @@ func (i *Interpreter) interpretExpr(expr Expr) Value {
 		value := i.interpretExpr(expr.Value)
 		i.env.Assign(name, value)
 		return value
+	case CallExpr:
+		callee := i.interpretExpr(expr.Callee).(Callable)
+		args := make([]Value, len(expr.Arguments))
+		for j, arg := range expr.Arguments {
+			argValue := i.interpretExpr(arg)
+			args[j] = argValue
+		}
+		return callee.Call(i, args)
 	}
 	panic(i.error("unexpected expression type: %s", expr))
 }

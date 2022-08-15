@@ -14,8 +14,8 @@ func (e *ScanError) Error() string {
 	return fmt.Sprintf("Error on line %d: %s", e.line+1, e.message)
 }
 
-func NewScanner(source string) Scanner {
-	return Scanner{source: source}
+func NewScanner(source string) *Scanner {
+	return &Scanner{source: source}
 }
 
 type Scanner struct {
@@ -267,7 +267,7 @@ var keywords = map[string]TokenType{
 	"else":     TokenElse,
 	"false":    TokenFalse,
 	"for":      TokenFor,
-	"function": TokenFunction,
+	"function": TokenTypeIdentifier,
 	"if":       TokenIf,
 	"integer":  TokenTypeIdentifier,
 	"map":      TokenTypeIdentifier,
