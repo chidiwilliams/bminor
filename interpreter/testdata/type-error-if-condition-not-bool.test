@@ -1,0 +1,4 @@
+f: integer = 0;
+if (f) {
+    print f;
+}

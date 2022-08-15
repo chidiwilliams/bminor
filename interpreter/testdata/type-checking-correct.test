@@ -1,0 +1,10 @@
+b: boolean;
+x: integer = 3;
+y: integer = 5;
+b = x<y;     // ok: the expression x<y is boolean
+
+f: integer = 0;
+if(f==0) {}    // ok: f==0 is a boolean expression
+
+c: char = 'a';
+if(c=='a') {}  // ok: c and 'a' are both chars

@@ -1,0 +1,5 @@
+x: integer = 65;
+y: char = 'A';
+if (x > y) {
+    print x;
+}

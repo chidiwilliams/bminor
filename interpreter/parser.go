@@ -25,7 +25,7 @@ func NewParser(tokens []Token, stdErr io.Writer) *Parser {
 /**
 Parser grammar:
 	program     => declaration* EOF
-	declaration => printStmt | varDecl | exprStmt
+	declaration => printStmt | varDecl | exprStmt | blockStmt
 	printStmt   => "print" expression ( "," expression )*
 	varDecl     => IDENTIFIER ":" typeExpr ( "=" expression )? ";"
 	typeExpr    => "integer" | "boolean" | "char" | "string"
@@ -76,6 +76,13 @@ func (p *Parser) declaration() Stmt {
 		return p.printStmt()
 	}
 
+	if p.match(TokenIf) {
+		return p.ifStmt()
+	}
+	if p.match(TokenLeftBrace) {
+		return p.blockStmt()
+	}
+
 	return p.exprStmt()
 }
 
@@ -90,6 +97,25 @@ func (p *Parser) printStmt() Stmt {
 
 	p.consume(TokenSemicolon, "expect semicolon after print statement")
 	return PrintStmt{Expressions: expressions}
+}
+
+func (p *Parser) ifStmt() Stmt {
+	p.consume(TokenLeftParen, "expect '(' after 'if'")
+	condition := p.expression()
+	p.consume(TokenRightParen, "expect ')' after if condition")
+	body := p.declaration()
+	return IfStmt{Condition: condition, Body: body}
+}
+
+func (p *Parser) blockStmt() Stmt {
+	statements := make([]Stmt, 0)
+
+	for !p.match(TokenRightBrace) {
+		stmt := p.declaration()
+		statements = append(statements, stmt)
+	}
+
+	return BlockStmt{Statements: statements}
 }
 
 func (p *Parser) exprStmt() Stmt {
@@ -304,7 +330,7 @@ func (p *Parser) primary() Expr {
 		return expr
 	}
 
-	panic(p.error("expect expression"))
+	panic(p.error(fmt.Sprintf("expecting an expression, but found '%s'", p.peek().Lexeme)))
 }
 
 func (p *Parser) literalExpr(value Value) Expr {

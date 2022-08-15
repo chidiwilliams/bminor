@@ -15,16 +15,17 @@ func (r runtimeError) Error() string {
 
 func NewInterpreter(typeChecker *TypeChecker, stdOut io.Writer) *Interpreter {
 	return &Interpreter{
-		env:         map[string]Value{},
+		env:         NewEnvironment[Value](nil),
 		typeChecker: typeChecker,
 		stdOut:      stdOut,
 	}
 }
 
 type Interpreter struct {
-	env         map[string]Value
-	typeChecker *TypeChecker // should this be passed in this way. or should it work similar to the resolved locals in Lox
-	stdOut      io.Writer
+	env          *Environment[Value]
+	enclosingEnv *Environment[Value]
+	typeChecker  *TypeChecker // should this be passed in this way. or should it work similar to the resolved locals in Lox
+	stdOut       io.Writer
 }
 
 func (i *Interpreter) Interpret(statements []Stmt) (err error) {
@@ -52,7 +53,7 @@ func (i *Interpreter) interpretStatement(stmt Stmt) {
 		} else {
 			value = i.interpretExpr(stmt.Initializer)
 		}
-		i.env[stmt.Name.Lexeme] = value
+		i.env.Define(stmt.Name.Lexeme, value)
 	case PrintStmt:
 		for _, expr := range stmt.Expressions {
 			value := i.interpretExpr(expr)
@@ -60,8 +61,19 @@ func (i *Interpreter) interpretStatement(stmt Stmt) {
 		}
 	case ExprStmt:
 		i.interpretExpr(stmt.Expr)
+	case IfStmt:
+		condition := i.interpretExpr(stmt.Condition).(Boolean)
+		if condition {
+			i.interpretStatement(stmt.Body)
+		}
+	case BlockStmt:
+		i.beginScope()
+		for _, stmt := range stmt.Statements {
+			i.interpretStatement(stmt)
+		}
+		i.endScope()
 	default:
-		panic(fmt.Sprintf("unexpected statement type: %s", stmt))
+		panic(i.error("unexpected statement type: %s", stmt))
 	}
 }
 
@@ -70,7 +82,7 @@ func (i *Interpreter) interpretExpr(expr Expr) Value {
 	case LiteralExpr:
 		return expr.Value
 	case VariableExpr:
-		return i.env[expr.Name.Lexeme]
+		return i.env.Get(expr.Name.Lexeme)
 	case ArrayExpr:
 		array := make([]Value, len(expr.Elements))
 		for j, element := range expr.Elements {
@@ -156,19 +168,34 @@ func (i *Interpreter) interpretExpr(expr Expr) Value {
 		}
 	case PostfixExpr:
 		name := expr.Left.Name.Lexeme
-		val := i.env[name].(Integer)
+		val := i.env.Get(name).(Integer)
 		switch expr.Operator.TokenType {
 		case TokenPlusPlus:
-			i.env[name] = val + 1
+			i.env.Assign(name, val+1)
 			return val
 		case TokenMinusMinus:
-			i.env[name] = val - 1
+			i.env.Assign(name, val-1)
 			return val
 		}
+	case AssignExpr:
+		name := expr.Name.Lexeme
+		value := i.interpretExpr(expr.Value)
+		i.env.Assign(name, value)
+		return value
 	}
-	panic(i.error(fmt.Sprintf("unexpected expression type: %s", expr)))
+	panic(i.error("unexpected expression type: %s", expr))
 }
 
-func (i *Interpreter) error(message string) error {
-	return runtimeError{message: message}
+func (i *Interpreter) error(format string, any ...any) error {
+	return runtimeError{message: fmt.Sprintf(format, any...)}
+}
+
+func (i *Interpreter) beginScope() {
+	i.enclosingEnv = i.env
+	i.env = NewEnvironment[Value](i.enclosingEnv)
+}
+
+func (i *Interpreter) endScope() {
+	i.env = i.enclosingEnv
+	i.enclosingEnv = i.env.enclosing
 }

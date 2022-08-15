@@ -39,7 +39,7 @@ func Run(source string, stdErr io.Writer, stdOut io.Writer) {
 	typeChecker := NewTypeChecker(statements)
 	err = typeChecker.Check()
 	if err != nil {
-		_, _ = stdErr.Write([]byte(fmt.Sprintf("Error: %s\n", err.Error())))
+		_, _ = stdErr.Write([]byte(err.Error() + "\n"))
 		return
 	}
 

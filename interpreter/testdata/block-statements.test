@@ -1,0 +1,13 @@
+a: string = "outer a";
+b: string = "outer b";
+c: string = "outer c";
+{
+    b: string = "middle b";
+    c: string = "middle c";
+    {
+        c: string = "inner c";
+        print a, "\n", b, "\n", c, "\n";
+    }
+    print a, "\n", b, "\n", c, "\n";
+}
+print a, "\n", b, "\n", c;
