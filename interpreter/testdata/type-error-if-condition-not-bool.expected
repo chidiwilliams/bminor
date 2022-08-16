@@ -1,1 +1,1 @@
-err: Error: 'f' must be a boolean
+err: Error on line 2: expected 'f' to be of type 'boolean', but got 'integer'

@@ -6,11 +6,16 @@ import (
 )
 
 type Stmt interface {
-	fmt.Stringer
+	Node
 }
 
 type PrintStmt struct {
 	Expressions []Expr
+	BeginLine   int
+}
+
+func (p PrintStmt) StartLine() int {
+	return p.BeginLine
 }
 
 func (p PrintStmt) String() string {
@@ -21,6 +26,11 @@ type VarStmt struct {
 	Name        Token
 	Initializer Expr
 	Type        TypeExpr
+	BeginLine   int
+}
+
+func (v VarStmt) StartLine() int {
+	return v.BeginLine
 }
 
 func (v VarStmt) String() string {
@@ -31,12 +41,21 @@ type ExprStmt struct {
 	Expr Expr
 }
 
+func (e ExprStmt) StartLine() int {
+	return e.Expr.StartLine()
+}
+
 func (e ExprStmt) String() string {
 	return fmt.Sprintf("%s;", e.Expr)
 }
 
 type BlockStmt struct {
 	Statements []Stmt
+	BeginLine  int
+}
+
+func (b BlockStmt) StartLine() int {
+	return b.BeginLine
 }
 
 func (b BlockStmt) String() string {
@@ -51,6 +70,11 @@ func (b BlockStmt) String() string {
 type IfStmt struct {
 	Condition Expr
 	Body      Stmt
+	BeginLine int
+}
+
+func (i IfStmt) StartLine() int {
+	return i.BeginLine
 }
 
 func (i IfStmt) String() string {
@@ -58,7 +82,12 @@ func (i IfStmt) String() string {
 }
 
 type ReturnStmt struct {
-	Value Value
+	Value     Expr
+	BeginLine int
+}
+
+func (r ReturnStmt) StartLine() int {
+	return r.BeginLine
 }
 
 func (r ReturnStmt) String() string {
@@ -66,9 +95,14 @@ func (r ReturnStmt) String() string {
 }
 
 type FunctionStmt struct {
-	Body     []Stmt
-	TypeExpr FunctionTypeExpr
-	Name     Token
+	Body      []Stmt
+	TypeExpr  FunctionTypeExpr
+	Name      Token
+	BeginLine int
+}
+
+func (f FunctionStmt) StartLine() int {
+	return f.BeginLine
 }
 
 func (f FunctionStmt) String() string {

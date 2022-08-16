@@ -1,1 +1,1 @@
-err: Error: x is not a(n) boolean
+err: Error on line 3: expected 'b[0]' to be of type 'integer', but got 'boolean'

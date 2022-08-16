@@ -89,27 +89,27 @@ func (p *Parser) declaration() Stmt {
 }
 
 func (p *Parser) printStmt() Stmt {
+	printToken := p.previous()
 	var expressions []Expr
-
 	expressions = append(expressions, p.expression())
-
 	for p.match(TokenComma) {
 		expressions = append(expressions, p.expression())
 	}
-
 	p.consume(TokenSemicolon, "expect semicolon after print statement")
-	return PrintStmt{Expressions: expressions}
+	return PrintStmt{Expressions: expressions, BeginLine: printToken.Line}
 }
 
 func (p *Parser) ifStmt() Stmt {
+	ifToken := p.previous()
 	p.consume(TokenLeftParen, "expect '(' after 'if'")
 	condition := p.expression()
 	p.consume(TokenRightParen, "expect ')' after if condition")
 	body := p.declaration()
-	return IfStmt{Condition: condition, Body: body}
+	return IfStmt{Condition: condition, Body: body, BeginLine: ifToken.Line}
 }
 
 func (p *Parser) blockStmt() Stmt {
+	brace := p.previous()
 	statements := make([]Stmt, 0)
 
 	for !p.match(TokenRightBrace) && !p.isAtEnd() {
@@ -117,7 +117,7 @@ func (p *Parser) blockStmt() Stmt {
 		statements = append(statements, stmt)
 	}
 
-	return BlockStmt{Statements: statements}
+	return BlockStmt{Statements: statements, BeginLine: brace.Line}
 }
 
 func (p *Parser) exprStmt() Stmt {
@@ -132,7 +132,9 @@ func (p *Parser) exprStmt() Stmt {
 }
 
 func (p *Parser) returnStmt() Stmt {
-	var value Value
+	returnToken := p.previous()
+
+	var value Expr
 	if p.match(TokenColon) {
 		value = nil
 	} else {
@@ -140,11 +142,11 @@ func (p *Parser) returnStmt() Stmt {
 	}
 
 	p.consume(TokenSemicolon, "expect semicolon after return statement")
-
-	return ReturnStmt{Value: value}
+	return ReturnStmt{Value: value, BeginLine: returnToken.Line}
 }
 
 func (p *Parser) varDecl(name Token) Stmt {
+	varToken := p.previous()
 	typeExpr := p.typeExpr()
 
 	var initializer Expr
@@ -157,20 +159,20 @@ func (p *Parser) varDecl(name Token) Stmt {
 	}
 
 	p.consume(TokenSemicolon, "expect semicolon after variable declaration")
-	return VarStmt{Name: name, Initializer: initializer, Type: typeExpr}
+	return VarStmt{Name: name, Initializer: initializer, Type: typeExpr, BeginLine: varToken.Line}
 }
 
 func (p *Parser) typeExpr() TypeExpr {
 	typeExpr := p.consume(TokenTypeIdentifier, "expect type expression")
 	switch typeExpr.Lexeme {
 	case "integer":
-		return AtomicTypeExpr{AtomicTypeInteger}
+		return AtomicTypeExpr{Type: AtomicTypeInteger, BeginLine: typeExpr.Line}
 	case "string":
-		return AtomicTypeExpr{AtomicTypeString}
+		return AtomicTypeExpr{Type: AtomicTypeString, BeginLine: typeExpr.Line}
 	case "char":
-		return AtomicTypeExpr{AtomicTypeChar}
+		return AtomicTypeExpr{Type: AtomicTypeChar, BeginLine: typeExpr.Line}
 	case "boolean":
-		return AtomicTypeExpr{AtomicTypeBoolean}
+		return AtomicTypeExpr{Type: AtomicTypeBoolean, BeginLine: typeExpr.Line}
 	case "array":
 		p.consume(TokenLeftSquareBracket, "expect '[' after array type expression")
 		length, ok := p.consume(TokenNumber, "expect length of array type expression").Literal.(Integer)
@@ -180,7 +182,7 @@ func (p *Parser) typeExpr() TypeExpr {
 
 		p.consume(TokenRightSquareBracket, "expect ']' after length of array type expression")
 		elementType := p.typeExpr()
-		return ArrayTypeExpr{Length: int(length), ElementType: elementType}
+		return ArrayTypeExpr{Length: int(length), ElementType: elementType, BeginLine: typeExpr.Line}
 	case "map":
 		keyType := p.typeExpr()
 		valueType := p.typeExpr()
@@ -204,6 +206,7 @@ func (p *Parser) typeExpr() TypeExpr {
 }
 
 func (p *Parser) function(name Token, functionTypeExpr FunctionTypeExpr) Stmt {
+	fnToken := p.previous()
 	p.consume(TokenLeftBrace, "expect '{' before function body")
 
 	params := make([]Token, len(functionTypeExpr.Params))
@@ -217,7 +220,7 @@ func (p *Parser) function(name Token, functionTypeExpr FunctionTypeExpr) Stmt {
 		statements = append(statements, stmt)
 	}
 
-	return FunctionStmt{Name: name, TypeExpr: functionTypeExpr, Body: statements}
+	return FunctionStmt{Name: name, TypeExpr: functionTypeExpr, Body: statements, BeginLine: fnToken.Line}
 }
 
 func (p *Parser) expression() Expr {
@@ -361,8 +364,9 @@ func (p *Parser) primary() Expr {
 	case p.match(TokenTrue):
 		return p.literalExpr(Boolean(true))
 	case p.match(TokenLeftBrace):
+		brace := p.previous()
 		if p.match(TokenRightBrace) {
-			return MapExpr{}
+			return MapExpr{BeginLine: brace.Line}
 		}
 
 		firstKeyOrElem := p.expression()
@@ -378,7 +382,7 @@ func (p *Parser) primary() Expr {
 				pairs = append(pairs, Pair{Key: key, Value: value})
 			}
 			p.consume(TokenRightBrace, "expect '}' after map literal")
-			return MapExpr{Pairs: pairs}
+			return MapExpr{Pairs: pairs, BeginLine: brace.Line}
 		}
 
 		elements := make([]Expr, 0)
@@ -387,7 +391,7 @@ func (p *Parser) primary() Expr {
 			elements = append(elements, p.expression())
 		}
 		p.consume(TokenRightBrace, "expect '}' after array literal")
-		return ArrayExpr{Elements: elements}
+		return ArrayExpr{Elements: elements, BeginLine: brace.Line}
 	case p.match(TokenLeftParen):
 		expr := p.expression()
 		p.consume(TokenRightParen, "expect ')' after expression")
@@ -398,7 +402,7 @@ func (p *Parser) primary() Expr {
 }
 
 func (p *Parser) literalExpr(value Value) Expr {
-	return LiteralExpr{Value: value}
+	return LiteralExpr{Value: value, BeginLine: p.previous().Line}
 }
 
 func (p *Parser) match(types ...TokenType) bool {
