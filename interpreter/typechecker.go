@@ -79,15 +79,13 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 	case IfStmt:
 		conditionType := c.resolveExpr(stmt.Condition)
 		c.expectExpr(stmt.Condition, conditionType, typeBoolean)
-		err := c.checkStmt(stmt.Body)
-		if err != nil {
+		if err := c.checkStmt(stmt.Body); err != nil {
 			return err
 		}
 	case BlockStmt:
 		c.beginScope()
 		for _, innerStmt := range stmt.Statements {
-			err := c.checkStmt(innerStmt)
-			if err != nil {
+			if err := c.checkStmt(innerStmt); err != nil {
 				return err
 			}
 		}
@@ -114,8 +112,7 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 		c.currentFunctionReturnType = returnType
 
 		for _, innerStmt := range stmt.Body {
-			err := c.checkStmt(innerStmt)
-			if err != nil {
+			if err := c.checkStmt(innerStmt); err != nil {
 				return err
 			}
 		}
@@ -127,6 +124,12 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 		}
 		valueType := c.resolveExpr(stmt.Value)
 		c.expectExpr(stmt.Value, valueType, c.currentFunctionReturnType)
+	case ForStmt:
+		conditionType := c.resolveExpr(stmt.Condition)
+		c.expectExpr(stmt.Condition, conditionType, typeBoolean)
+		if err := c.checkStmt(stmt.Body); err != nil {
+			return err
+		}
 	default:
 		return c.error(stmt, fmt.Sprintf("unexpected statement type: %s", stmt))
 	}
@@ -156,7 +159,7 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 			elementType := c.resolveExpr(element)
 			c.expectExpr(element, elementType, firstElementType)
 		}
-		return newArrayType(firstElementType, len(expr.Elements))
+		return newArrayType(firstElementType, len(expr.Elements), false)
 	case MapExpr:
 		if len(expr.Pairs) == 0 {
 			return newMapType(typeAny, typeAny)
@@ -274,15 +277,17 @@ func (c *TypeChecker) getType(typeExpr TypeExpr) Type {
 		case AtomicTypeInteger:
 			return typeInteger
 		}
+	case VoidTypeExpr:
+		return voidType{}
 	case ArrayTypeExpr:
 		elementType := c.getType(typeExpr.ElementType)
-		return newArrayType(elementType, typeExpr.Length)
+		return newArrayType(elementType, typeExpr.Length, typeExpr.Reference)
 	case MapTypeExpr:
 		keyType := c.getType(typeExpr.KeyType)
 		valueType := c.getType(typeExpr.ValueType)
 		return newMapType(keyType, valueType)
 	}
-	panic(fmt.Sprintf("unexpected type: %s", typeExpr))
+	panic(c.error(typeExpr, "unexpected type: %s", typeExpr))
 }
 
 func (c *TypeChecker) equals(resolvedType Type, declaredType Type) bool {

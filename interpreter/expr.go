@@ -236,6 +236,7 @@ type ArrayTypeExpr struct {
 	ElementType TypeExpr
 	Length      int
 	BeginLine   int
+	Reference   bool
 }
 
 func (a ArrayTypeExpr) StartLine() int {
@@ -285,4 +286,16 @@ func (f FunctionTypeExpr) String() string {
 		params[i] = param.String()
 	}
 	return fmt.Sprintf("function %s ( %s )", f.ReturnType, strings.Join(params, ", "))
+}
+
+type VoidTypeExpr struct {
+	BeginLine int
+}
+
+func (v VoidTypeExpr) String() string {
+	return "void"
+}
+
+func (v VoidTypeExpr) StartLine() int {
+	return v.BeginLine
 }

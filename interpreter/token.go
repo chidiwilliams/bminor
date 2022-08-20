@@ -19,9 +19,7 @@ const (
 	TokenReturn
 	TokenString
 	TokenTrue
-	TokenVoid
 	TokenWhile
-	TokenTypeIdentifier
 
 	TokenPlus
 	TokenMinus

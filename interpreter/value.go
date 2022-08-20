@@ -79,7 +79,7 @@ func (f *Function) Call(interpreter *Interpreter, args []Value) (value Value) {
 	}
 
 	for _, stmt := range f.Body {
-		interpreter.interpretStatement(stmt)
+		interpreter.interpret(stmt)
 	}
 
 	interpreter.endScope()

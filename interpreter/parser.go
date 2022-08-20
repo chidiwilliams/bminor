@@ -84,6 +84,9 @@ func (p *Parser) declaration() Stmt {
 	if p.match(TokenReturn) {
 		return p.returnStmt()
 	}
+	if p.match(TokenFor) {
+		return p.forStmt()
+	}
 
 	return p.exprStmt()
 }
@@ -145,9 +148,35 @@ func (p *Parser) returnStmt() Stmt {
 	return ReturnStmt{Value: value, BeginLine: returnToken.Line}
 }
 
+func (p *Parser) forStmt() Stmt {
+	forToken := p.previous()
+	p.consume(TokenLeftParen, "expect '(' after 'for'")
+
+	initializer := p.exprStmt()
+	condition := p.expression()
+	p.consume(TokenSemicolon, "expect semicolon after for condition")
+	increment := p.expression()
+
+	p.consume(TokenRightParen, "expect ')' after for clauses")
+
+	body := p.declaration()
+
+	return BlockStmt{
+		Statements: []Stmt{
+			initializer,
+			ForStmt{
+				Condition: condition,
+				Body: BlockStmt{
+					Statements: []Stmt{body, ExprStmt{Expr: increment}},
+				},
+			},
+		},
+		BeginLine: forToken.Line,
+	}
+}
+
 func (p *Parser) varDecl(name Token) Stmt {
-	varToken := p.previous()
-	typeExpr := p.typeExpr()
+	typeExpr := p.typeExpr(false)
 
 	var initializer Expr
 	if p.match(TokenEqual) {
@@ -159,11 +188,11 @@ func (p *Parser) varDecl(name Token) Stmt {
 	}
 
 	p.consume(TokenSemicolon, "expect semicolon after variable declaration")
-	return VarStmt{Name: name, Initializer: initializer, Type: typeExpr, BeginLine: varToken.Line}
+	return VarStmt{Name: name, Initializer: initializer, Type: typeExpr, BeginLine: name.Line}
 }
 
-func (p *Parser) typeExpr() TypeExpr {
-	typeExpr := p.consume(TokenTypeIdentifier, "expect type expression")
+func (p *Parser) typeExpr(isArrayReference bool) TypeExpr {
+	typeExpr := p.consume(TokenIdentifier, "expect type expression")
 	switch typeExpr.Lexeme {
 	case "integer":
 		return AtomicTypeExpr{Type: AtomicTypeInteger, BeginLine: typeExpr.Line}
@@ -173,31 +202,43 @@ func (p *Parser) typeExpr() TypeExpr {
 		return AtomicTypeExpr{Type: AtomicTypeChar, BeginLine: typeExpr.Line}
 	case "boolean":
 		return AtomicTypeExpr{Type: AtomicTypeBoolean, BeginLine: typeExpr.Line}
+	case "void":
+		return VoidTypeExpr{BeginLine: typeExpr.Line}
 	case "array":
 		p.consume(TokenLeftSquareBracket, "expect '[' after array type expression")
-		length, ok := p.consume(TokenNumber, "expect length of array type expression").Literal.(Integer)
-		if !ok || length == 0 {
-			panic(p.error("expect length of array type expression to be a positive integer"))
+		var length Integer
+		if !isArrayReference {
+			var ok bool
+			length, ok = p.consume(TokenNumber, "expect length of array type expression").Literal.(Integer)
+			if !ok || length == 0 {
+				panic(p.error("expect length of array type expression to be a positive integer"))
+			}
 		}
 
 		p.consume(TokenRightSquareBracket, "expect ']' after length of array type expression")
-		elementType := p.typeExpr()
-		return ArrayTypeExpr{Length: int(length), ElementType: elementType, BeginLine: typeExpr.Line}
+		elementType := p.typeExpr(isArrayReference)
+		return ArrayTypeExpr{Length: int(length), ElementType: elementType, BeginLine: typeExpr.Line, Reference: isArrayReference}
 	case "map":
-		keyType := p.typeExpr()
-		valueType := p.typeExpr()
+		keyType := p.typeExpr(isArrayReference)
+		valueType := p.typeExpr(isArrayReference)
 		return MapTypeExpr{KeyType: keyType, ValueType: valueType}
 	case "function":
-		returnType := p.typeExpr()
+		returnType := p.typeExpr(isArrayReference)
 		p.consume(TokenLeftParen, "expect '(' before function parameters")
 
 		params := make([]ParamTypeExpr, 0)
-		for !p.match(TokenRightParen) {
+		for {
 			name := p.consume(TokenIdentifier, "expect function parameter")
 			p.consume(TokenColon, "expect ':' after function parameter")
-			paramType := p.typeExpr()
+			paramType := p.typeExpr(true)
 			params = append(params, ParamTypeExpr{Name: name, Type: paramType})
+
+			if !p.match(TokenComma) {
+				break
+			}
 		}
+
+		p.consume(TokenRightParen, "expect ')' after function parameters")
 
 		return FunctionTypeExpr{Params: params, ReturnType: returnType}
 	default:

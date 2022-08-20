@@ -48,13 +48,14 @@ func (t atomicType[UnderlyingGoType]) ZeroValue() Value {
 	return t.zeroValue
 }
 
-func newArrayType(elementType Type, length int) arrayType {
-	return arrayType{elementType: elementType, length: length}
+func newArrayType(elementType Type, length int, reference bool) arrayType {
+	return arrayType{elementType: elementType, length: length, reference: reference}
 }
 
 type arrayType struct {
 	length      int
 	elementType Type
+	reference   bool
 }
 
 func (a arrayType) String() string {

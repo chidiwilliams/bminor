@@ -40,37 +40,37 @@ func (i *Interpreter) Interpret(statements []Stmt) (err error) {
 		}
 	}()
 	for _, statement := range statements {
-		i.interpretStatement(statement)
+		i.interpret(statement)
 	}
 	return nil
 }
 
-func (i *Interpreter) interpretStatement(stmt Stmt) {
+func (i *Interpreter) interpret(stmt Stmt) {
 	switch stmt := stmt.(type) {
 	case VarStmt:
 		var value Value
 		if stmt.Initializer == nil {
 			value = i.typeChecker.getType(stmt.Type).ZeroValue()
 		} else {
-			value = i.interpretExpr(stmt.Initializer)
+			value = i.evaluate(stmt.Initializer)
 		}
 		i.env.Define(stmt.Name.Lexeme, value)
 	case PrintStmt:
 		for _, expr := range stmt.Expressions {
-			value := i.interpretExpr(expr)
+			value := i.evaluate(expr)
 			_, _ = i.stdOut.Write([]byte(fmt.Sprint(value)))
 		}
 	case ExprStmt:
-		i.interpretExpr(stmt.Expr)
+		i.evaluate(stmt.Expr)
 	case IfStmt:
-		condition := i.interpretExpr(stmt.Condition).(Boolean)
+		condition := i.evaluate(stmt.Condition).(Boolean)
 		if condition {
-			i.interpretStatement(stmt.Body)
+			i.interpret(stmt.Body)
 		}
 	case BlockStmt:
 		i.beginScope()
 		for _, stmt := range stmt.Statements {
-			i.interpretStatement(stmt)
+			i.interpret(stmt)
 		}
 		i.endScope()
 	case FunctionStmt:
@@ -81,14 +81,18 @@ func (i *Interpreter) interpretStatement(stmt Stmt) {
 		fnValue := &Function{Params: params, Body: stmt.Body}
 		i.env.Define(stmt.Name.Lexeme, fnValue)
 	case ReturnStmt:
-		value := i.interpretExpr(stmt.Value)
+		value := i.evaluate(stmt.Value)
 		panic(Return{Value: value})
+	case ForStmt:
+		for i.evaluate(stmt.Condition).(Boolean) {
+			i.interpret(stmt.Body)
+		}
 	default:
 		panic(i.error("unexpected statement type: %s", stmt))
 	}
 }
 
-func (i *Interpreter) interpretExpr(expr Expr) Value {
+func (i *Interpreter) evaluate(expr Expr) Value {
 	switch expr := expr.(type) {
 	case LiteralExpr:
 		return expr.Value
@@ -97,21 +101,21 @@ func (i *Interpreter) interpretExpr(expr Expr) Value {
 	case ArrayExpr:
 		array := make([]Value, len(expr.Elements))
 		for j, element := range expr.Elements {
-			array[j] = i.interpretExpr(element)
+			array[j] = i.evaluate(element)
 		}
 		return Array(array)
 	case MapExpr:
 		mapValue := make(Map)
 		for _, pair := range expr.Pairs {
-			key := i.interpretExpr(pair.Key)
-			value := i.interpretExpr(pair.Value)
+			key := i.evaluate(pair.Key)
+			value := i.evaluate(pair.Value)
 			mapValue[key] = value
 		}
 		return mapValue
 	case SetExpr:
-		objectValue := i.interpretExpr(expr.Object)
-		name := i.interpretExpr(expr.Name)
-		value := i.interpretExpr(expr.Value)
+		objectValue := i.evaluate(expr.Object)
+		name := i.evaluate(expr.Name)
+		value := i.evaluate(expr.Value)
 		if array, ok := objectValue.(Array); ok {
 			if name, ok := name.(Integer); ok {
 				array[name] = value
@@ -123,8 +127,8 @@ func (i *Interpreter) interpretExpr(expr Expr) Value {
 			return value
 		}
 	case GetExpr:
-		objectValue := i.interpretExpr(expr.Object)
-		name := i.interpretExpr(expr.Name)
+		objectValue := i.evaluate(expr.Object)
+		name := i.evaluate(expr.Name)
 		if array, ok := objectValue.(Array); ok {
 			if name, ok := name.(Integer); ok {
 				return array[name]
@@ -134,8 +138,8 @@ func (i *Interpreter) interpretExpr(expr Expr) Value {
 			return mapValue[name]
 		}
 	case BinaryExpr:
-		left := i.interpretExpr(expr.Left)
-		right := i.interpretExpr(expr.Right)
+		left := i.evaluate(expr.Left)
+		right := i.evaluate(expr.Right)
 		switch expr.Operator.TokenType {
 		case TokenPlus:
 			return left.(Integer) + right.(Integer)
@@ -163,14 +167,14 @@ func (i *Interpreter) interpretExpr(expr Expr) Value {
 			return Boolean(left != right)
 		}
 	case PrefixExpr:
-		right := i.interpretExpr(expr.Right)
+		right := i.evaluate(expr.Right)
 		switch expr.Operator.TokenType {
 		case TokenMinus:
 			return -right.(Integer)
 		}
 	case LogicalExpr:
-		left := i.interpretExpr(expr.Left)
-		right := i.interpretExpr(expr.Right)
+		left := i.evaluate(expr.Left)
+		right := i.evaluate(expr.Right)
 		switch expr.Operator.TokenType {
 		case TokenOr:
 			return left.(Boolean) || right.(Boolean)
@@ -190,14 +194,14 @@ func (i *Interpreter) interpretExpr(expr Expr) Value {
 		}
 	case AssignExpr:
 		name := expr.Name.Lexeme
-		value := i.interpretExpr(expr.Value)
+		value := i.evaluate(expr.Value)
 		i.env.Assign(name, value)
 		return value
 	case CallExpr:
-		callee := i.interpretExpr(expr.Callee).(Callable)
+		callee := i.evaluate(expr.Callee).(Callable)
 		args := make([]Value, len(expr.Arguments))
 		for j, arg := range expr.Arguments {
-			argValue := i.interpretExpr(arg)
+			argValue := i.evaluate(arg)
 			args[j] = argValue
 		}
 		return callee.Call(i, args)

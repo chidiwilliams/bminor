@@ -1,0 +1,9 @@
+printarray: function void ( a: array [] integer, size: integer ) = {
+	i: integer;
+	for(i=0;i<size;i++) {
+		print a[i];
+	}
+}
+
+a: array [5] integer = {1,2,3,4,5};
+printarray(a, 5);

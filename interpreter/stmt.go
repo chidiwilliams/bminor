@@ -119,3 +119,17 @@ func (f FunctionStmt) String() string {
 	return fmt.Sprintf("%s: function %s ( %s ) {\n%s}",
 		f.Name.Lexeme, f.TypeExpr.ReturnType, strings.Join(params, ", "), strings.Join(body, "\n"))
 }
+
+type ForStmt struct {
+	Condition Expr
+	Body      BlockStmt
+	BeginLine int
+}
+
+func (f ForStmt) String() string {
+	return fmt.Sprintf("for (%s) %s", f.Condition, f.Body)
+}
+
+func (f ForStmt) StartLine() int {
+	return f.BeginLine
+}

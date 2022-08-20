@@ -261,22 +261,14 @@ func (s *Scanner) isAlpha(char rune) bool {
 }
 
 var keywords = map[string]TokenType{
-	"array":    TokenTypeIdentifier,
-	"boolean":  TokenTypeIdentifier,
-	"char":     TokenTypeIdentifier,
-	"else":     TokenElse,
-	"false":    TokenFalse,
-	"for":      TokenFor,
-	"function": TokenTypeIdentifier,
-	"if":       TokenIf,
-	"integer":  TokenTypeIdentifier,
-	"map":      TokenTypeIdentifier,
-	"print":    TokenPrint,
-	"return":   TokenReturn,
-	"string":   TokenTypeIdentifier,
-	"true":     TokenTrue,
-	"void":     TokenVoid,
-	"while":    TokenWhile,
+	"else":   TokenElse,
+	"false":  TokenFalse,
+	"for":    TokenFor,
+	"if":     TokenIf,
+	"print":  TokenPrint,
+	"return": TokenReturn,
+	"true":   TokenTrue,
+	"while":  TokenWhile,
 }
 
 func (s *Scanner) identifier() {
