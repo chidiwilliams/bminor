@@ -1,8 +1,13 @@
 // https://projecteuler.net/problem=1
-sum: integer;
-for (i: integer; i < 1000; i++) {
-    if (i % 3 == 0 || i % 5 == 0) {
-        sum = sum + i;
+
+sumMultiples: function integer (n: integer) = {
+    sum: integer;
+    for (i: integer; i < 1000; i++) {
+        if (i % 3 == 0 || i % 5 == 0) {
+            sum = sum + i;
+        }
     }
+    return sum;
 }
-print sum;
+
+print sumMultiples(1000);

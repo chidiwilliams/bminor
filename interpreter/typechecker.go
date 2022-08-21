@@ -30,10 +30,11 @@ func NewTypeChecker(statements []Stmt) TypeChecker {
 }
 
 type TypeChecker struct {
-	statements                []Stmt
-	env                       *Environment[Type]
-	enclosingEnv              *Environment[Type]
-	currentFunctionReturnType Type
+	statements                 []Stmt
+	env                        *Environment[Type]
+	enclosingEnv               *Environment[Type]
+	currentFunctionReturnType  Type
+	hasCurrentFunctionReturned bool
 }
 
 func (c *TypeChecker) Check() error {
@@ -105,6 +106,8 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 		c.env.Define(stmt.Name.Lexeme, newFunctionType(paramTypes, returnType))
 
 		c.beginScope()
+		c.hasCurrentFunctionReturned = false
+
 		for _, param := range stmt.TypeExpr.Params {
 			c.env.Define(param.Name.Lexeme, c.getType(param.Type))
 		}
@@ -117,13 +120,18 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 			}
 		}
 
+		if c.currentFunctionReturnType != typeVoid && !c.hasCurrentFunctionReturned {
+			return c.error(stmt, "expected function to return value of type '%s'", c.currentFunctionReturnType)
+		}
+
 		c.endScope()
 	case *ReturnStmt:
 		if stmt.Value != nil && c.currentFunctionReturnType == typeVoid {
-			panic(c.error(stmt.Value, "not expecting any return value"))
+			return c.error(stmt.Value, "not expecting any return value")
 		}
 		valueType := c.resolveExpr(stmt.Value)
 		c.expectExpr(stmt.Value, valueType, c.currentFunctionReturnType)
+		c.hasCurrentFunctionReturned = true
 	case *ForStmt:
 		conditionType := c.resolveExpr(stmt.Condition)
 		c.expectExpr(stmt.Condition, conditionType, typeBoolean)
@@ -131,7 +139,7 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 			return err
 		}
 	default:
-		return c.error(stmt, fmt.Sprintf("unexpected statement type: %s", stmt))
+		return c.error(stmt, fmt.Sprintf("unexpected statement type: %v", stmt))
 	}
 	return nil
 }

@@ -154,8 +154,7 @@ func (p *Parser) forStmt() Stmt {
 
 	var initializer Stmt
 	if !p.match(TokenSemicolon) {
-		initializer = p.expression()
-		p.consume(TokenSemicolon, "expect semicolon after initializer clause")
+		initializer = p.exprStmt()
 	}
 
 	var condition Stmt
@@ -263,11 +262,6 @@ func (p *Parser) typeExpr(isArrayReference bool) TypeExpr {
 func (p *Parser) function(name Token, functionTypeExpr FunctionTypeExpr) Stmt {
 	fnToken := p.previous()
 	p.consume(TokenLeftBrace, "expect '{' before function body")
-
-	params := make([]Token, len(functionTypeExpr.Params))
-	for i, param := range functionTypeExpr.Params {
-		params[i] = param.Name
-	}
 
 	statements := make([]Stmt, 0)
 	for !p.match(TokenRightBrace) && !p.isAtEnd() {

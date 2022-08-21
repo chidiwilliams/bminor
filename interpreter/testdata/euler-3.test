@@ -1,0 +1,15 @@
+// https://projecteuler.net/problem=3
+
+largestPrimeFactor: function integer (n: integer) = {
+    p: integer;
+    for (i: integer = 2; i <= n && n > 1; i++) {
+        for (; n % i == 0; n = n / i) {
+            if (i > p) {
+                p = i;
+            }
+        }
+    }
+    return p;
+}
+
+print largestPrimeFactor(600851475143);

@@ -1,17 +1,22 @@
 // https://projecteuler.net/problem=2
 
-a: integer = 1;
-b: integer = 2;
-sum: integer = b;
+sumEvenFib: function integer (n: integer) = {
+    a: integer = 1;
+    b: integer = 2;
+    sum: integer = b;
 
-for (; b < 4000000;) {
-    c: integer = a + b;
-    a = b;
-    b = c;
+    for (; b < n;) {
+        c: integer = a + b;
+        a = b;
+        b = c;
 
-    if (b % 2 == 0) {
-        sum = sum + b;
+        if (b % 2 == 0) {
+            sum = sum + b;
+        }
     }
+
+    return sum;
 }
 
-print sum;
+
+print sumEvenFib(4000000);
