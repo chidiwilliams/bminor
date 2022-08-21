@@ -160,7 +160,7 @@ func (s *Scanner) scanToken() error {
 		}
 		s.advance() // advance past the closing "'"
 		value := s.source[s.current-1]
-		s.addTokenWithLiteral(TokenChar, Char(rune(value)))
+		s.addTokenWithLiteral(TokenChar, CharValue(rune(value)))
 
 	case '"':
 		for s.peek() != '"' && !s.isAtEnd() {
@@ -179,7 +179,7 @@ func (s *Scanner) scanToken() error {
 			return err
 		}
 
-		s.addTokenWithLiteral(TokenString, String(unquoted))
+		s.addTokenWithLiteral(TokenString, StringValue(unquoted))
 
 	default:
 		if s.isDigit(char) {
@@ -252,7 +252,7 @@ func (s *Scanner) number() error {
 		return err
 	}
 
-	s.addTokenWithLiteral(TokenNumber, Integer(val))
+	s.addTokenWithLiteral(TokenNumber, IntegerValue(val))
 	return nil
 }
 

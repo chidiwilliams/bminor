@@ -9,9 +9,9 @@ type Value interface {
 	fmt.Stringer
 }
 
-type Array []Value
+type ArrayValue []Value
 
-func (a Array) String() string {
+func (a ArrayValue) String() string {
 	values := make([]string, len(a))
 	for i, value := range a {
 		values[i] = value.String()
@@ -19,9 +19,9 @@ func (a Array) String() string {
 	return "[" + strings.Join(values, " ") + "]"
 }
 
-type Map map[any]Value
+type MapValue map[any]Value
 
-func (m Map) String() string {
+func (m MapValue) String() string {
 	pairs := make([]string, 0)
 	for key, value := range m {
 		pairs = append(pairs, fmt.Sprintf("%s: %s", key, value))
@@ -29,27 +29,27 @@ func (m Map) String() string {
 	return fmt.Sprintf("{ %s }", strings.Join(pairs, ", "))
 }
 
-type Integer int
+type IntegerValue int
 
-func (i Integer) String() string {
+func (i IntegerValue) String() string {
 	return fmt.Sprintf("%d", i)
 }
 
-type String string
+type StringValue string
 
-func (s String) String() string {
+func (s StringValue) String() string {
 	return string(s)
 }
 
-type Boolean bool
+type BooleanValue bool
 
-func (b Boolean) String() string {
+func (b BooleanValue) String() string {
 	return fmt.Sprintf("%t", b)
 }
 
-type Char rune
+type CharValue rune
 
-func (c Char) String() string {
+func (c CharValue) String() string {
 	return fmt.Sprintf("%d", c)
 }
 
@@ -57,12 +57,12 @@ type Return struct {
 	Value Value
 }
 
-type Function struct {
+type FunctionValue struct {
 	Params []string
 	Body   []Stmt
 }
 
-func (f *Function) Call(interpreter *Interpreter, args []Value) (value Value) {
+func (f *FunctionValue) Call(interpreter *Interpreter, args []Value) (value Value) {
 	defer func() {
 		if r := recover(); r != nil {
 			if returnVal, ok := r.(Return); ok {
@@ -86,7 +86,7 @@ func (f *Function) Call(interpreter *Interpreter, args []Value) (value Value) {
 	return nil
 }
 
-func (f *Function) String() string {
+func (f *FunctionValue) String() string {
 	body := make([]string, len(f.Body))
 	for i, stmt := range f.Body {
 		body[i] = stmt.String()
@@ -94,6 +94,26 @@ func (f *Function) String() string {
 	return fmt.Sprintf("( %s ) {%s\n}", strings.Join(f.Params, ", "), strings.Join(body, "\n"))
 }
 
-type Callable interface {
+type CallableValue interface {
+	Value
 	Call(interpreter *Interpreter, args []Value) Value
+}
+
+type predeclaredFn func(interpreter *Interpreter, args []Value) Value
+
+func NewPredeclaredFunctionValue(name string, fn predeclaredFn) *PredeclaredFunctionValue {
+	return &PredeclaredFunctionValue{name: name, fn: fn}
+}
+
+type PredeclaredFunctionValue struct {
+	name string
+	fn   predeclaredFn
+}
+
+func (p *PredeclaredFunctionValue) Call(interpreter *Interpreter, args []Value) Value {
+	return p.fn(interpreter, args)
+}
+
+func (p *PredeclaredFunctionValue) String() string {
+	return p.name
 }

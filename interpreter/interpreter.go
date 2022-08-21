@@ -16,10 +16,13 @@ func (r runtimeError) Error() string {
 
 // NewInterpreter returns a new interpreter
 func NewInterpreter(stdOut io.Writer) *Interpreter {
-	return &Interpreter{
-		env:    NewEnvironment[Value](nil),
+	env := NewEnvironment[Value](nil)
+	interpreter := &Interpreter{
+		env:    env,
 		stdOut: stdOut,
 	}
+	interpreter.predeclareFunction("puts", NewPredeclaredFunctionValue("puts", puts))
+	return interpreter
 }
 
 type Interpreter struct {
@@ -47,8 +50,10 @@ func (i *Interpreter) Interpret(statements []Stmt) (err error) {
 func (i *Interpreter) interpret(stmt Stmt) {
 	switch stmt := stmt.(type) {
 	case *VarStmt:
-		value := i.evaluate(stmt.Initializer)
-		i.env.Define(stmt.Name.Lexeme, value)
+		if !stmt.IsFnPrototype {
+			value := i.evaluate(stmt.Initializer)
+			i.env.Define(stmt.Name.Lexeme, value)
+		}
 	case *PrintStmt:
 		for _, expr := range stmt.Expressions {
 			value := i.evaluate(expr)
@@ -57,7 +62,7 @@ func (i *Interpreter) interpret(stmt Stmt) {
 	case *ExprStmt:
 		i.evaluate(stmt.Expr)
 	case *IfStmt:
-		condition := i.evaluate(stmt.Condition).(Boolean)
+		condition := i.evaluate(stmt.Condition).(BooleanValue)
 		if condition {
 			i.interpret(stmt.Body)
 		}
@@ -72,13 +77,13 @@ func (i *Interpreter) interpret(stmt Stmt) {
 		for i, param := range stmt.TypeExpr.Params {
 			params[i] = param.Name.Lexeme
 		}
-		fnValue := &Function{Params: params, Body: stmt.Body}
+		fnValue := &FunctionValue{Params: params, Body: stmt.Body}
 		i.env.Define(stmt.Name.Lexeme, fnValue)
 	case *ReturnStmt:
 		value := i.evaluate(stmt.Value)
 		panic(Return{Value: value})
 	case *ForStmt:
-		for i.evaluate(stmt.Condition).(Boolean) {
+		for i.evaluate(stmt.Condition).(BooleanValue) {
 			i.interpret(stmt.Body)
 		}
 	default:
@@ -97,9 +102,9 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 		for j, element := range expr.Elements {
 			array[j] = i.evaluate(element)
 		}
-		return Array(array)
+		return ArrayValue(array)
 	case *MapExpr:
-		mapValue := make(Map)
+		mapValue := make(MapValue)
 		for _, pair := range expr.Pairs {
 			key := i.evaluate(pair.Key)
 			value := i.evaluate(pair.Value)
@@ -110,25 +115,25 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 		objectValue := i.evaluate(expr.Object)
 		name := i.evaluate(expr.Name)
 		value := i.evaluate(expr.Value)
-		if array, ok := objectValue.(Array); ok {
-			if name, ok := name.(Integer); ok {
+		if array, ok := objectValue.(ArrayValue); ok {
+			if name, ok := name.(IntegerValue); ok {
 				array[name] = value
 				return value
 			}
 		}
-		if mapValue, ok := objectValue.(Map); ok {
+		if mapValue, ok := objectValue.(MapValue); ok {
 			mapValue[name] = value
 			return value
 		}
 	case *GetExpr:
 		objectValue := i.evaluate(expr.Object)
 		name := i.evaluate(expr.Name)
-		if array, ok := objectValue.(Array); ok {
-			if name, ok := name.(Integer); ok {
+		if array, ok := objectValue.(ArrayValue); ok {
+			if name, ok := name.(IntegerValue); ok {
 				return array[name]
 			}
 		}
-		if mapValue, ok := objectValue.(Map); ok {
+		if mapValue, ok := objectValue.(MapValue); ok {
 			return mapValue[name]
 		}
 	case *BinaryExpr:
@@ -136,48 +141,48 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 		right := i.evaluate(expr.Right)
 		switch expr.Operator.TokenType {
 		case TokenPlus:
-			return left.(Integer) + right.(Integer)
+			return left.(IntegerValue) + right.(IntegerValue)
 		case TokenMinus:
-			return left.(Integer) - right.(Integer)
+			return left.(IntegerValue) - right.(IntegerValue)
 		case TokenStar:
-			return left.(Integer) * right.(Integer)
+			return left.(IntegerValue) * right.(IntegerValue)
 		case TokenSlash:
-			return left.(Integer) / right.(Integer)
+			return left.(IntegerValue) / right.(IntegerValue)
 		case TokenPercent:
-			return left.(Integer) % right.(Integer)
+			return left.(IntegerValue) % right.(IntegerValue)
 		case TokenCaret:
-			return Integer(int(math.Pow(float64(left.(Integer)), float64(right.(Integer)))))
+			return IntegerValue(int(math.Pow(float64(left.(IntegerValue)), float64(right.(IntegerValue)))))
 		case TokenLess:
-			return Boolean(left.(Integer) < right.(Integer))
+			return BooleanValue(left.(IntegerValue) < right.(IntegerValue))
 		case TokenLessEqual:
-			return Boolean(left.(Integer) <= right.(Integer))
+			return BooleanValue(left.(IntegerValue) <= right.(IntegerValue))
 		case TokenGreater:
-			return Boolean(left.(Integer) > right.(Integer))
+			return BooleanValue(left.(IntegerValue) > right.(IntegerValue))
 		case TokenGreaterEqual:
-			return Boolean(left.(Integer) >= right.(Integer))
+			return BooleanValue(left.(IntegerValue) >= right.(IntegerValue))
 		case TokenEqualEqual:
-			return Boolean(left == right)
+			return BooleanValue(left == right)
 		case TokenBangEqual:
-			return Boolean(left != right)
+			return BooleanValue(left != right)
 		}
 	case *PrefixExpr:
 		right := i.evaluate(expr.Right)
 		switch expr.Operator.TokenType {
 		case TokenMinus:
-			return -right.(Integer)
+			return -right.(IntegerValue)
 		}
 	case *LogicalExpr:
 		left := i.evaluate(expr.Left)
 		right := i.evaluate(expr.Right)
 		switch expr.Operator.TokenType {
 		case TokenOr:
-			return left.(Boolean) || right.(Boolean)
+			return left.(BooleanValue) || right.(BooleanValue)
 		case TokenAnd:
-			return left.(Boolean) && right.(Boolean)
+			return left.(BooleanValue) && right.(BooleanValue)
 		}
 	case *PostfixExpr:
 		name := expr.Left.Name.Lexeme
-		val := i.env.Get(name).(Integer)
+		val := i.env.Get(name).(IntegerValue)
 		switch expr.Operator.TokenType {
 		case TokenPlusPlus:
 			i.env.Assign(name, val+1)
@@ -192,7 +197,7 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 		i.env.Assign(name, value)
 		return value
 	case *CallExpr:
-		callee := i.evaluate(expr.Callee).(Callable)
+		callee := i.evaluate(expr.Callee).(CallableValue)
 		args := make([]Value, len(expr.Arguments))
 		for j, arg := range expr.Arguments {
 			argValue := i.evaluate(arg)
@@ -215,4 +220,8 @@ func (i *Interpreter) beginScope() {
 func (i *Interpreter) endScope() {
 	i.env = i.enclosingEnv
 	i.enclosingEnv = i.env.enclosing
+}
+
+func (i *Interpreter) predeclareFunction(name string, callable CallableValue) {
+	i.env.Define(name, callable)
 }

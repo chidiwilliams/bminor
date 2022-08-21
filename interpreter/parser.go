@@ -176,7 +176,7 @@ func (p *Parser) forStmt() Stmt {
 	}
 
 	if condition == nil {
-		condition = &LiteralExpr{Value: Boolean(true)}
+		condition = &LiteralExpr{Value: BooleanValue(true)}
 	}
 
 	body = &ForStmt{Condition: condition, Body: body}
@@ -192,16 +192,21 @@ func (p *Parser) varDecl(name Token) Stmt {
 	typeExpr := p.typeExpr(false)
 
 	var initializer Expr
+	isFnPrototype := false
 	if p.match(TokenEqual) {
 		if functionTypeExpr, ok := typeExpr.(FunctionTypeExpr); ok {
 			return p.function(name, functionTypeExpr)
 		} else {
 			initializer = p.expression()
 		}
+	} else {
+		if _, ok := typeExpr.(FunctionTypeExpr); ok {
+			isFnPrototype = true
+		}
 	}
 
 	p.consume(TokenSemicolon, "expect semicolon after variable declaration")
-	return &VarStmt{Name: name, Initializer: initializer, Type: typeExpr, BeginLine: name.Line}
+	return &VarStmt{Name: name, Initializer: initializer, Type: typeExpr, IsFnPrototype: isFnPrototype, BeginLine: name.Line}
 }
 
 func (p *Parser) typeExpr(isArrayReference bool) TypeExpr {
@@ -219,10 +224,10 @@ func (p *Parser) typeExpr(isArrayReference bool) TypeExpr {
 		return VoidTypeExpr{BeginLine: typeExpr.Line}
 	case "array":
 		p.consume(TokenLeftSquareBracket, "expect '[' after array type expression")
-		var length Integer
+		var length IntegerValue
 		if !isArrayReference {
 			var ok bool
-			length, ok = p.consume(TokenNumber, "expect length of array type expression").Literal.(Integer)
+			length, ok = p.consume(TokenNumber, "expect length of array type expression").Literal.(IntegerValue)
 			if !ok || length == 0 {
 				panic(p.error("expect length of array type expression to be a positive integer"))
 			}
@@ -240,18 +245,21 @@ func (p *Parser) typeExpr(isArrayReference bool) TypeExpr {
 		p.consume(TokenLeftParen, "expect '(' before function parameters")
 
 		params := make([]ParamTypeExpr, 0)
-		for {
-			name := p.consume(TokenIdentifier, "expect function parameter")
-			p.consume(TokenColon, "expect ':' after function parameter")
-			paramType := p.typeExpr(true)
-			params = append(params, ParamTypeExpr{Name: name, Type: paramType})
 
-			if !p.match(TokenComma) {
-				break
+		if !p.match(TokenRightParen) {
+			for {
+				name := p.consume(TokenIdentifier, "expect function parameter")
+				p.consume(TokenColon, "expect ':' after function parameter")
+				paramType := p.typeExpr(true)
+				params = append(params, ParamTypeExpr{Name: name, Type: paramType})
+
+				if !p.match(TokenComma) {
+					break
+				}
 			}
-		}
 
-		p.consume(TokenRightParen, "expect ')' after function parameters")
+			p.consume(TokenRightParen, "expect ')' after function parameters")
+		}
 
 		return FunctionTypeExpr{Params: params, ReturnType: returnType}
 	default:
@@ -385,15 +393,20 @@ func (p *Parser) subscript() Expr {
 			expr = &GetExpr{Object: expr, Name: index}
 			p.consume(TokenRightSquareBracket, "expect ']' after array subscript")
 		} else if p.match(TokenLeftParen) {
+			var paren Token
 			args := make([]Expr, 0)
-			for {
-				argument := p.expression()
-				args = append(args, argument)
-				if !p.match(TokenComma) {
-					break
+			if p.match(TokenRightParen) {
+				paren = p.previous()
+			} else {
+				for {
+					argument := p.expression()
+					args = append(args, argument)
+					if !p.match(TokenComma) {
+						break
+					}
 				}
+				paren = p.consume(TokenRightParen, "expect ')' after arguments")
 			}
-			paren := p.consume(TokenRightParen, "expect ')' after arguments")
 			return &CallExpr{Callee: expr, Paren: paren, Arguments: args}
 		} else {
 			break
@@ -409,9 +422,9 @@ func (p *Parser) primary() Expr {
 	case p.match(TokenNumber, TokenChar, TokenString):
 		return p.literalExpr(p.previous().Literal)
 	case p.match(TokenFalse):
-		return p.literalExpr(Boolean(false))
+		return p.literalExpr(BooleanValue(false))
 	case p.match(TokenTrue):
-		return p.literalExpr(Boolean(true))
+		return p.literalExpr(BooleanValue(true))
 	case p.match(TokenLeftBrace):
 		brace := p.previous()
 		if p.match(TokenRightBrace) {

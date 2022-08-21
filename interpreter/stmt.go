@@ -23,10 +23,11 @@ func (p *PrintStmt) String() string {
 }
 
 type VarStmt struct {
-	Name        Token
-	Initializer Expr
-	Type        TypeExpr
-	BeginLine   int
+	Name          Token
+	Initializer   Expr
+	Type          TypeExpr
+	BeginLine     int
+	IsFnPrototype bool
 }
 
 func (v *VarStmt) StartLine() int {

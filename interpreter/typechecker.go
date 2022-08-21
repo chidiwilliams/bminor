@@ -14,10 +14,10 @@ func (e typeError) Error() string {
 }
 
 var (
-	typeInteger = newAtomicType[Integer]("integer")
-	typeBoolean = newAtomicType[Boolean]("boolean")
-	typeChar    = newAtomicType[Char]("char")
-	typeString  = newAtomicType[String]("string")
+	typeInteger = newAtomicType[IntegerValue]("integer")
+	typeBoolean = newAtomicType[BooleanValue]("boolean")
+	typeChar    = newAtomicType[CharValue]("char")
+	typeString  = newAtomicType[StringValue]("string")
 	typeAny     = anyType{}
 	typeVoid    = voidType{}
 )
@@ -96,14 +96,8 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 			panic(c.error(stmt, "function definitions may not be nested"))
 		}
 
-		paramTypes := make([]ParamType, len(stmt.TypeExpr.Params))
-		for i, param := range stmt.TypeExpr.Params {
-			paramTypes[i] = ParamType{Name: param.Name, Type: c.getType(param.Type)}
-		}
-
-		returnType := c.getType(stmt.TypeExpr.ReturnType)
-
-		c.env.Define(stmt.Name.Lexeme, newFunctionType(paramTypes, returnType))
+		fnType := c.getType(stmt.TypeExpr)
+		c.env.Define(stmt.Name.Lexeme, fnType)
 
 		c.beginScope()
 		c.hasCurrentFunctionReturned = false
@@ -112,7 +106,7 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 			c.env.Define(param.Name.Lexeme, c.getType(param.Type))
 		}
 
-		c.currentFunctionReturnType = returnType
+		c.currentFunctionReturnType = fnType.(functionType).returnType
 
 		for _, innerStmt := range stmt.Body {
 			if err := c.checkStmt(innerStmt); err != nil {
@@ -150,13 +144,13 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 	switch expr := expr.(type) {
 	case *LiteralExpr:
 		switch expr.Value.(type) {
-		case Integer:
+		case IntegerValue:
 			return typeInteger
-		case Boolean:
+		case BooleanValue:
 			return typeBoolean
-		case Char:
+		case CharValue:
 			return typeChar
-		case String:
+		case StringValue:
 			return typeString
 		}
 	case *VariableExpr:
@@ -294,6 +288,13 @@ func (c *TypeChecker) getType(typeExpr TypeExpr) Type {
 		keyType := c.getType(typeExpr.KeyType)
 		valueType := c.getType(typeExpr.ValueType)
 		return newMapType(keyType, valueType)
+	case FunctionTypeExpr:
+		paramTypes := make([]ParamType, len(typeExpr.Params))
+		for i, param := range typeExpr.Params {
+			paramTypes[i] = ParamType{Name: param.Name, Type: c.getType(param.Type)}
+		}
+		returnType := c.getType(typeExpr.ReturnType)
+		return newFunctionType(paramTypes, returnType)
 	}
 	panic(c.error(typeExpr, "unexpected type: %s", typeExpr))
 }

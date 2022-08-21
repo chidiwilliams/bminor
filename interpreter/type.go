@@ -72,7 +72,7 @@ func (a arrayType) Equals(other Type) bool {
 }
 
 func (a arrayType) ZeroValue() Value {
-	arr := Array(make([]Value, a.length))
+	arr := ArrayValue(make([]Value, a.length))
 	for i := 0; i < a.length; i++ {
 		arr[i] = a.elementType.ZeroValue()
 	}
@@ -114,7 +114,7 @@ func (m mapType) Equals(other Type) bool {
 }
 
 func (m mapType) ZeroValue() Value {
-	return Map{}
+	return MapValue{}
 }
 
 func (m mapType) String() string {

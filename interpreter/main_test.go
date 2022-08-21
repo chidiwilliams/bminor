@@ -52,16 +52,17 @@ func TestRun(t *testing.T) {
 
 func splitWantOutput(output string) (stdOut string, stdErr string) {
 	lines := strings.Split(output, "\n")
+
 	for _, line := range lines {
-		if len(line) >= 5 && line[:5] == "err: " {
-			stdErr += line[5:] + "\n"
+		if len(line) >= 4 && line[:4] == "err:" {
+			stdErr += line[4:] + "\n"
 		} else {
 			stdOut += line + "\n"
 		}
 	}
 
-	stdOut = strings.TrimRight(stdOut, "\n")
-	// stdErr = strings.TrimRight(stdErr, "\n")
+	stdOut = strings.TrimSuffix(stdOut, "\n")
+	stdErr = strings.TrimSuffix(stdErr, "\n")
 
 	return
 }
