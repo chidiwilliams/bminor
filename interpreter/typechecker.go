@@ -61,28 +61,28 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 	}()
 
 	switch stmt := stmt.(type) {
-	case VarStmt:
+	case *VarStmt:
 		declaredType := c.getType(stmt.Type)
 		if stmt.Initializer != nil {
 			resolvedType := c.resolveExpr(stmt.Initializer)
 			c.expectExpr(stmt.Initializer, resolvedType, declaredType)
 		} else {
-			stmt.Initializer = LiteralExpr{Value: declaredType.ZeroValue()}
+			stmt.Initializer = &LiteralExpr{Value: declaredType.ZeroValue()}
 		}
 		c.env.Define(stmt.Name.Lexeme, declaredType)
-	case PrintStmt:
+	case *PrintStmt:
 		for _, expression := range stmt.Expressions {
 			c.resolveExpr(expression)
 		}
-	case ExprStmt:
+	case *ExprStmt:
 		c.resolveExpr(stmt.Expr)
-	case IfStmt:
+	case *IfStmt:
 		conditionType := c.resolveExpr(stmt.Condition)
 		c.expectExpr(stmt.Condition, conditionType, typeBoolean)
 		if err := c.checkStmt(stmt.Body); err != nil {
 			return err
 		}
-	case BlockStmt:
+	case *BlockStmt:
 		c.beginScope()
 		for _, innerStmt := range stmt.Statements {
 			if err := c.checkStmt(innerStmt); err != nil {
@@ -90,7 +90,7 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 			}
 		}
 		c.endScope()
-	case FunctionStmt:
+	case *FunctionStmt:
 		if c.currentFunctionReturnType != nil {
 			panic(c.error(stmt, "function definitions may not be nested"))
 		}
@@ -118,13 +118,13 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 		}
 
 		c.endScope()
-	case ReturnStmt:
+	case *ReturnStmt:
 		if stmt.Value != nil && c.currentFunctionReturnType == typeVoid {
 			panic(c.error(stmt.Value, "not expecting any return value"))
 		}
 		valueType := c.resolveExpr(stmt.Value)
 		c.expectExpr(stmt.Value, valueType, c.currentFunctionReturnType)
-	case ForStmt:
+	case *ForStmt:
 		conditionType := c.resolveExpr(stmt.Condition)
 		c.expectExpr(stmt.Condition, conditionType, typeBoolean)
 		if err := c.checkStmt(stmt.Body); err != nil {
@@ -140,7 +140,7 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 // literal values and operations while checking for type errors within the expression
 func (c *TypeChecker) resolveExpr(expr Expr) Type {
 	switch expr := expr.(type) {
-	case LiteralExpr:
+	case *LiteralExpr:
 		switch expr.Value.(type) {
 		case Integer:
 			return typeInteger
@@ -151,16 +151,16 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 		case String:
 			return typeString
 		}
-	case VariableExpr:
+	case *VariableExpr:
 		return c.env.Get(expr.Name.Lexeme)
-	case ArrayExpr:
+	case *ArrayExpr:
 		firstElementType := c.resolveExpr(expr.Elements[0])
 		for _, element := range expr.Elements[1:] {
 			elementType := c.resolveExpr(element)
 			c.expectExpr(element, elementType, firstElementType)
 		}
 		return newArrayType(firstElementType, len(expr.Elements), false)
-	case MapExpr:
+	case *MapExpr:
 		if len(expr.Pairs) == 0 {
 			return newMapType(typeAny, typeAny)
 		}
@@ -177,14 +177,14 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 		}
 
 		return newMapType(firstKeyType, firstValueType)
-	case GetExpr:
+	case *GetExpr:
 		return c.resolveLookup(expr.Object, expr.Name)
-	case SetExpr:
+	case *SetExpr:
 		expectedValueType := c.resolveLookup(expr.Object, expr.Name)
 		valueType := c.resolveExpr(expr.Value)
 		c.expectExpr(expr.Value, valueType, expectedValueType)
 		return expectedValueType
-	case BinaryExpr:
+	case *BinaryExpr:
 		left := c.resolveExpr(expr.Left)
 		right := c.resolveExpr(expr.Right)
 		if left.Equals(typeBoolean) || right.Equals(typeBoolean) {
@@ -206,7 +206,7 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 
 			return typeInteger
 		}
-	case PrefixExpr:
+	case *PrefixExpr:
 		rightType := c.resolveExpr(expr.Right)
 		switch expr.Operator.TokenType {
 		case TokenMinus:
@@ -216,22 +216,22 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 			c.expectExpr(expr.Right, rightType, typeBoolean)
 			return typeBoolean
 		}
-	case PostfixExpr:
+	case *PostfixExpr:
 		leftType := c.resolveExpr(expr.Left)
 		c.expectExpr(expr.Left, leftType, typeInteger)
 		return typeInteger
-	case LogicalExpr:
+	case *LogicalExpr:
 		leftType := c.resolveExpr(expr.Left)
 		c.expectExpr(expr.Left, leftType, typeBoolean)
 		rightType := c.resolveExpr(expr.Right)
 		c.expectExpr(expr.Right, rightType, typeBoolean)
 		return typeBoolean
-	case AssignExpr:
+	case *AssignExpr:
 		valueType := c.resolveExpr(expr.Value)
 		nameType := c.env.Get(expr.Name.Lexeme)
 		c.expectExpr(expr.Value, valueType, nameType)
 		return valueType
-	case CallExpr:
+	case *CallExpr:
 		calleeType, ok := c.resolveExpr(expr.Callee).(functionType)
 		if !ok {
 			panic(c.error(expr.Callee, "%s is not a function", expr.Callee))

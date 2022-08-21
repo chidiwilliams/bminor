@@ -47,43 +47,38 @@ func (i *Interpreter) Interpret(statements []Stmt) (err error) {
 
 func (i *Interpreter) interpret(stmt Stmt) {
 	switch stmt := stmt.(type) {
-	case VarStmt:
-		var value Value
-		if stmt.Initializer == nil {
-			value = i.typeChecker.getType(stmt.Type).ZeroValue()
-		} else {
-			value = i.evaluate(stmt.Initializer)
-		}
+	case *VarStmt:
+		value := i.evaluate(stmt.Initializer)
 		i.env.Define(stmt.Name.Lexeme, value)
-	case PrintStmt:
+	case *PrintStmt:
 		for _, expr := range stmt.Expressions {
 			value := i.evaluate(expr)
 			_, _ = i.stdOut.Write([]byte(fmt.Sprint(value)))
 		}
-	case ExprStmt:
+	case *ExprStmt:
 		i.evaluate(stmt.Expr)
-	case IfStmt:
+	case *IfStmt:
 		condition := i.evaluate(stmt.Condition).(Boolean)
 		if condition {
 			i.interpret(stmt.Body)
 		}
-	case BlockStmt:
+	case *BlockStmt:
 		i.beginScope()
 		for _, stmt := range stmt.Statements {
 			i.interpret(stmt)
 		}
 		i.endScope()
-	case FunctionStmt:
+	case *FunctionStmt:
 		params := make([]string, len(stmt.TypeExpr.Params))
 		for i, param := range stmt.TypeExpr.Params {
 			params[i] = param.Name.Lexeme
 		}
 		fnValue := &Function{Params: params, Body: stmt.Body}
 		i.env.Define(stmt.Name.Lexeme, fnValue)
-	case ReturnStmt:
+	case *ReturnStmt:
 		value := i.evaluate(stmt.Value)
 		panic(Return{Value: value})
-	case ForStmt:
+	case *ForStmt:
 		for i.evaluate(stmt.Condition).(Boolean) {
 			i.interpret(stmt.Body)
 		}
@@ -94,17 +89,17 @@ func (i *Interpreter) interpret(stmt Stmt) {
 
 func (i *Interpreter) evaluate(expr Expr) Value {
 	switch expr := expr.(type) {
-	case LiteralExpr:
+	case *LiteralExpr:
 		return expr.Value
-	case VariableExpr:
+	case *VariableExpr:
 		return i.env.Get(expr.Name.Lexeme)
-	case ArrayExpr:
+	case *ArrayExpr:
 		array := make([]Value, len(expr.Elements))
 		for j, element := range expr.Elements {
 			array[j] = i.evaluate(element)
 		}
 		return Array(array)
-	case MapExpr:
+	case *MapExpr:
 		mapValue := make(Map)
 		for _, pair := range expr.Pairs {
 			key := i.evaluate(pair.Key)
@@ -112,7 +107,7 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 			mapValue[key] = value
 		}
 		return mapValue
-	case SetExpr:
+	case *SetExpr:
 		objectValue := i.evaluate(expr.Object)
 		name := i.evaluate(expr.Name)
 		value := i.evaluate(expr.Value)
@@ -126,7 +121,7 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 			mapValue[name] = value
 			return value
 		}
-	case GetExpr:
+	case *GetExpr:
 		objectValue := i.evaluate(expr.Object)
 		name := i.evaluate(expr.Name)
 		if array, ok := objectValue.(Array); ok {
@@ -137,7 +132,7 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 		if mapValue, ok := objectValue.(Map); ok {
 			return mapValue[name]
 		}
-	case BinaryExpr:
+	case *BinaryExpr:
 		left := i.evaluate(expr.Left)
 		right := i.evaluate(expr.Right)
 		switch expr.Operator.TokenType {
@@ -166,13 +161,13 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 		case TokenBangEqual:
 			return Boolean(left != right)
 		}
-	case PrefixExpr:
+	case *PrefixExpr:
 		right := i.evaluate(expr.Right)
 		switch expr.Operator.TokenType {
 		case TokenMinus:
 			return -right.(Integer)
 		}
-	case LogicalExpr:
+	case *LogicalExpr:
 		left := i.evaluate(expr.Left)
 		right := i.evaluate(expr.Right)
 		switch expr.Operator.TokenType {
@@ -181,7 +176,7 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 		case TokenAnd:
 			return left.(Boolean) && right.(Boolean)
 		}
-	case PostfixExpr:
+	case *PostfixExpr:
 		name := expr.Left.Name.Lexeme
 		val := i.env.Get(name).(Integer)
 		switch expr.Operator.TokenType {
@@ -192,12 +187,12 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 			i.env.Assign(name, val-1)
 			return val
 		}
-	case AssignExpr:
+	case *AssignExpr:
 		name := expr.Name.Lexeme
 		value := i.evaluate(expr.Value)
 		i.env.Assign(name, value)
 		return value
-	case CallExpr:
+	case *CallExpr:
 		callee := i.evaluate(expr.Callee).(Callable)
 		args := make([]Value, len(expr.Arguments))
 		for j, arg := range expr.Arguments {

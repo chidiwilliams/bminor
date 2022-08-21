@@ -18,11 +18,11 @@ type VariableExpr struct {
 	Name Token
 }
 
-func (v VariableExpr) StartLine() int {
+func (v *VariableExpr) StartLine() int {
 	return v.Name.Line
 }
 
-func (v VariableExpr) String() string {
+func (v *VariableExpr) String() string {
 	return v.Name.Lexeme
 }
 
@@ -31,11 +31,11 @@ type LiteralExpr struct {
 	BeginLine int
 }
 
-func (l LiteralExpr) StartLine() int {
+func (l *LiteralExpr) StartLine() int {
 	return l.BeginLine
 }
 
-func (l LiteralExpr) String() string {
+func (l *LiteralExpr) String() string {
 	return fmt.Sprint(l.Value)
 }
 
@@ -44,11 +44,11 @@ type ArrayExpr struct {
 	BeginLine int
 }
 
-func (a ArrayExpr) StartLine() int {
+func (a *ArrayExpr) StartLine() int {
 	return a.BeginLine
 }
 
-func (a ArrayExpr) String() string {
+func (a *ArrayExpr) String() string {
 	return fmt.Sprint(a.Elements)
 }
 
@@ -57,11 +57,11 @@ type MapExpr struct {
 	BeginLine int
 }
 
-func (m MapExpr) StartLine() int {
+func (m *MapExpr) StartLine() int {
 	return m.BeginLine
 }
 
-func (m MapExpr) String() string {
+func (m *MapExpr) String() string {
 	pairs := make([]string, len(m.Pairs))
 	for i := range m.Pairs {
 		pairs[i] = m.Pairs[i].String()
@@ -88,11 +88,11 @@ type GetExpr struct {
 	Name   Expr
 }
 
-func (g GetExpr) StartLine() int {
+func (g *GetExpr) StartLine() int {
 	return g.Object.StartLine()
 }
 
-func (g GetExpr) String() string {
+func (g *GetExpr) String() string {
 	return fmt.Sprintf("%s[%s]", g.Object, g.Name)
 }
 
@@ -102,11 +102,11 @@ type SetExpr struct {
 	Value  Expr
 }
 
-func (s SetExpr) StartLine() int {
+func (s *SetExpr) StartLine() int {
 	return s.Object.StartLine()
 }
 
-func (s SetExpr) String() string {
+func (s *SetExpr) String() string {
 	return fmt.Sprintf("%s[%s] = %s", s.Object, s.Name, s.Value)
 }
 
@@ -115,11 +115,11 @@ type AssignExpr struct {
 	Value Expr
 }
 
-func (a AssignExpr) StartLine() int {
+func (a *AssignExpr) StartLine() int {
 	return a.Name.Line
 }
 
-func (a AssignExpr) String() string {
+func (a *AssignExpr) String() string {
 	return fmt.Sprintf("%s = %s", a.Name.Lexeme, a.Value)
 }
 
@@ -128,24 +128,24 @@ type PrefixExpr struct {
 	Right    Expr
 }
 
-func (e PrefixExpr) StartLine() int {
+func (e *PrefixExpr) StartLine() int {
 	return e.Operator.Line
 }
 
-func (e PrefixExpr) String() string {
+func (e *PrefixExpr) String() string {
 	return fmt.Sprintf("%s%s", e.Operator.Lexeme, e.Right)
 }
 
 type PostfixExpr struct {
 	Operator Token
-	Left     VariableExpr
+	Left     *VariableExpr
 }
 
-func (e PostfixExpr) StartLine() int {
+func (e *PostfixExpr) StartLine() int {
 	return e.Left.StartLine()
 }
 
-func (e PostfixExpr) String() string {
+func (e *PostfixExpr) String() string {
 	return fmt.Sprintf("%s%s", e.Left, e.Operator.Lexeme)
 }
 
@@ -155,11 +155,11 @@ type BinaryExpr struct {
 	Operator Token
 }
 
-func (b BinaryExpr) StartLine() int {
+func (b *BinaryExpr) StartLine() int {
 	return b.Left.StartLine()
 }
 
-func (b BinaryExpr) String() string {
+func (b *BinaryExpr) String() string {
 	return fmt.Sprintf("%s %s %s", b.Left, b.Operator.Lexeme, b.Right)
 }
 
@@ -169,11 +169,11 @@ type LogicalExpr struct {
 	Operator Token
 }
 
-func (l LogicalExpr) StartLine() int {
+func (l *LogicalExpr) StartLine() int {
 	return l.Left.StartLine()
 }
 
-func (l LogicalExpr) String() string {
+func (l *LogicalExpr) String() string {
 	return fmt.Sprintf("%s %s %s", l.Left, l.Operator.Lexeme, l.Right)
 }
 
@@ -183,11 +183,11 @@ type CallExpr struct {
 	Arguments []Expr
 }
 
-func (c CallExpr) StartLine() int {
+func (c *CallExpr) StartLine() int {
 	return c.Callee.StartLine()
 }
 
-func (c CallExpr) String() string {
+func (c *CallExpr) String() string {
 	args := make([]string, len(c.Arguments))
 	for i, arg := range c.Arguments {
 		args[i] = arg.String()

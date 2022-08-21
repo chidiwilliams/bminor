@@ -99,7 +99,7 @@ func (p *Parser) printStmt() Stmt {
 		expressions = append(expressions, p.expression())
 	}
 	p.consume(TokenSemicolon, "expect semicolon after print statement")
-	return PrintStmt{Expressions: expressions, BeginLine: printToken.Line}
+	return &PrintStmt{Expressions: expressions, BeginLine: printToken.Line}
 }
 
 func (p *Parser) ifStmt() Stmt {
@@ -108,7 +108,7 @@ func (p *Parser) ifStmt() Stmt {
 	condition := p.expression()
 	p.consume(TokenRightParen, "expect ')' after if condition")
 	body := p.declaration()
-	return IfStmt{Condition: condition, Body: body, BeginLine: ifToken.Line}
+	return &IfStmt{Condition: condition, Body: body, BeginLine: ifToken.Line}
 }
 
 func (p *Parser) blockStmt() Stmt {
@@ -120,18 +120,18 @@ func (p *Parser) blockStmt() Stmt {
 		statements = append(statements, stmt)
 	}
 
-	return BlockStmt{Statements: statements, BeginLine: brace.Line}
+	return &BlockStmt{Statements: statements, BeginLine: brace.Line}
 }
 
 func (p *Parser) exprStmt() Stmt {
 	expr := p.expression()
 
-	if expr, ok := expr.(VariableExpr); ok && p.match(TokenColon) {
+	if expr, ok := expr.(*VariableExpr); ok && p.match(TokenColon) {
 		return p.varDecl(expr.Name)
 	}
 
 	p.consume(TokenSemicolon, "expect semicolon after variable declaration")
-	return ExprStmt{Expr: expr}
+	return &ExprStmt{Expr: expr}
 }
 
 func (p *Parser) returnStmt() Stmt {
@@ -145,34 +145,48 @@ func (p *Parser) returnStmt() Stmt {
 	}
 
 	p.consume(TokenSemicolon, "expect semicolon after return statement")
-	return ReturnStmt{Value: value, BeginLine: returnToken.Line}
+	return &ReturnStmt{Value: value, BeginLine: returnToken.Line}
 }
 
 func (p *Parser) forStmt() Stmt {
 	forToken := p.previous()
 	p.consume(TokenLeftParen, "expect '(' after 'for'")
 
-	initializer := p.exprStmt()
-	condition := p.expression()
-	p.consume(TokenSemicolon, "expect semicolon after for condition")
-	increment := p.expression()
+	var initializer Stmt
+	if !p.match(TokenSemicolon) {
+		initializer = p.expression()
+		p.consume(TokenSemicolon, "expect semicolon after initializer clause")
+	}
 
-	p.consume(TokenRightParen, "expect ')' after for clauses")
+	var condition Stmt
+	if !p.match(TokenSemicolon) {
+		condition = p.expression()
+		p.consume(TokenSemicolon, "expect semicolon after condition clause")
+	}
+
+	var increment Expr
+	if !p.match(TokenRightParen) {
+		increment = p.expression()
+		p.consume(TokenRightParen, "expect ')' after for clauses")
+	}
 
 	body := p.declaration()
 
-	return BlockStmt{
-		Statements: []Stmt{
-			initializer,
-			ForStmt{
-				Condition: condition,
-				Body: BlockStmt{
-					Statements: []Stmt{body, ExprStmt{Expr: increment}},
-				},
-			},
-		},
-		BeginLine: forToken.Line,
+	if increment != nil {
+		body = &BlockStmt{Statements: []Stmt{body, &ExprStmt{Expr: increment}}}
 	}
+
+	if condition == nil {
+		condition = &LiteralExpr{Value: Boolean(true)}
+	}
+
+	body = &ForStmt{Condition: condition, Body: body}
+
+	if initializer != nil {
+		body = &BlockStmt{Statements: []Stmt{initializer, body}, BeginLine: forToken.Line}
+	}
+
+	return body
 }
 
 func (p *Parser) varDecl(name Token) Stmt {
@@ -188,7 +202,7 @@ func (p *Parser) varDecl(name Token) Stmt {
 	}
 
 	p.consume(TokenSemicolon, "expect semicolon after variable declaration")
-	return VarStmt{Name: name, Initializer: initializer, Type: typeExpr, BeginLine: name.Line}
+	return &VarStmt{Name: name, Initializer: initializer, Type: typeExpr, BeginLine: name.Line}
 }
 
 func (p *Parser) typeExpr(isArrayReference bool) TypeExpr {
@@ -261,7 +275,7 @@ func (p *Parser) function(name Token, functionTypeExpr FunctionTypeExpr) Stmt {
 		statements = append(statements, stmt)
 	}
 
-	return FunctionStmt{Name: name, TypeExpr: functionTypeExpr, Body: statements, BeginLine: fnToken.Line}
+	return &FunctionStmt{Name: name, TypeExpr: functionTypeExpr, Body: statements, BeginLine: fnToken.Line}
 }
 
 func (p *Parser) expression() Expr {
@@ -274,11 +288,11 @@ func (p *Parser) assignment() Expr {
 	if p.match(TokenEqual) {
 		value := p.assignment()
 
-		if expr, ok := expr.(VariableExpr); ok {
-			return AssignExpr{Name: expr.Name, Value: value}
+		if expr, ok := expr.(*VariableExpr); ok {
+			return &AssignExpr{Name: expr.Name, Value: value}
 		}
-		if expr, ok := expr.(GetExpr); ok {
-			return SetExpr{Object: expr.Object, Name: expr.Name, Value: value}
+		if expr, ok := expr.(*GetExpr); ok {
+			return &SetExpr{Object: expr.Object, Name: expr.Name, Value: value}
 		}
 		panic(parseError{message: fmt.Sprintf("invalid assignment target")})
 	}
@@ -291,7 +305,7 @@ func (p *Parser) or() Expr {
 	for p.match(TokenOr) {
 		operator := p.previous()
 		right := p.and()
-		expr = LogicalExpr{Left: expr, Right: right, Operator: operator}
+		expr = &LogicalExpr{Left: expr, Right: right, Operator: operator}
 	}
 	return expr
 }
@@ -301,7 +315,7 @@ func (p *Parser) and() Expr {
 	for p.match(TokenAnd) {
 		operator := p.previous()
 		right := p.comparison()
-		expr = LogicalExpr{Left: expr, Operator: operator, Right: right}
+		expr = &LogicalExpr{Left: expr, Operator: operator, Right: right}
 	}
 	return expr
 }
@@ -312,7 +326,7 @@ func (p *Parser) comparison() Expr {
 		TokenGreaterEqual, TokenEqualEqual, TokenBangEqual) {
 		operator := p.previous()
 		right := p.term()
-		expr = BinaryExpr{Left: expr, Right: right, Operator: operator}
+		expr = &BinaryExpr{Left: expr, Right: right, Operator: operator}
 	}
 	return expr
 }
@@ -322,7 +336,7 @@ func (p *Parser) term() Expr {
 	for p.match(TokenPlus, TokenMinus) {
 		operator := p.previous()
 		right := p.factor()
-		expr = BinaryExpr{Left: expr, Right: right, Operator: operator}
+		expr = &BinaryExpr{Left: expr, Right: right, Operator: operator}
 	}
 	return expr
 }
@@ -332,7 +346,7 @@ func (p *Parser) factor() Expr {
 	for p.match(TokenStar, TokenSlash, TokenPercent) {
 		operator := p.previous()
 		right := p.exponent()
-		expr = BinaryExpr{Left: expr, Right: right, Operator: operator}
+		expr = &BinaryExpr{Left: expr, Right: right, Operator: operator}
 	}
 	return expr
 }
@@ -342,7 +356,7 @@ func (p *Parser) exponent() Expr {
 	if p.match(TokenCaret) {
 		operator := p.previous()
 		right := p.exponent()
-		return BinaryExpr{Left: expr, Right: right, Operator: operator}
+		return &BinaryExpr{Left: expr, Right: right, Operator: operator}
 	}
 	return expr
 }
@@ -351,7 +365,7 @@ func (p *Parser) unary() Expr {
 	if p.match(TokenMinus, TokenBang) {
 		operator := p.previous()
 		right := p.unary()
-		return PrefixExpr{Operator: operator, Right: right}
+		return &PrefixExpr{Operator: operator, Right: right}
 	}
 	return p.postfix()
 }
@@ -359,12 +373,12 @@ func (p *Parser) unary() Expr {
 func (p *Parser) postfix() Expr {
 	expr := p.subscript()
 	if p.match(TokenPlusPlus, TokenMinusMinus) {
-		expr, ok := expr.(VariableExpr)
+		expr, ok := expr.(*VariableExpr)
 		if !ok {
 			panic(p.error("invalid left-hand side expression in postfix operation"))
 		}
 		operator := p.previous()
-		return PostfixExpr{Operator: operator, Left: expr}
+		return &PostfixExpr{Operator: operator, Left: expr}
 	}
 	return expr
 }
@@ -374,7 +388,7 @@ func (p *Parser) subscript() Expr {
 	for {
 		if p.match(TokenLeftSquareBracket) {
 			index := p.expression()
-			expr = GetExpr{Object: expr, Name: index}
+			expr = &GetExpr{Object: expr, Name: index}
 			p.consume(TokenRightSquareBracket, "expect ']' after array subscript")
 		} else if p.match(TokenLeftParen) {
 			args := make([]Expr, 0)
@@ -386,7 +400,7 @@ func (p *Parser) subscript() Expr {
 				}
 			}
 			paren := p.consume(TokenRightParen, "expect ')' after arguments")
-			return CallExpr{Callee: expr, Paren: paren, Arguments: args}
+			return &CallExpr{Callee: expr, Paren: paren, Arguments: args}
 		} else {
 			break
 		}
@@ -397,7 +411,7 @@ func (p *Parser) subscript() Expr {
 func (p *Parser) primary() Expr {
 	switch {
 	case p.match(TokenIdentifier):
-		return VariableExpr{Name: p.previous()}
+		return &VariableExpr{Name: p.previous()}
 	case p.match(TokenNumber, TokenChar, TokenString):
 		return p.literalExpr(p.previous().Literal)
 	case p.match(TokenFalse):
@@ -407,7 +421,7 @@ func (p *Parser) primary() Expr {
 	case p.match(TokenLeftBrace):
 		brace := p.previous()
 		if p.match(TokenRightBrace) {
-			return MapExpr{BeginLine: brace.Line}
+			return &MapExpr{BeginLine: brace.Line}
 		}
 
 		firstKeyOrElem := p.expression()
@@ -423,7 +437,7 @@ func (p *Parser) primary() Expr {
 				pairs = append(pairs, Pair{Key: key, Value: value})
 			}
 			p.consume(TokenRightBrace, "expect '}' after map literal")
-			return MapExpr{Pairs: pairs, BeginLine: brace.Line}
+			return &MapExpr{Pairs: pairs, BeginLine: brace.Line}
 		}
 
 		elements := make([]Expr, 0)
@@ -432,7 +446,7 @@ func (p *Parser) primary() Expr {
 			elements = append(elements, p.expression())
 		}
 		p.consume(TokenRightBrace, "expect '}' after array literal")
-		return ArrayExpr{Elements: elements, BeginLine: brace.Line}
+		return &ArrayExpr{Elements: elements, BeginLine: brace.Line}
 	case p.match(TokenLeftParen):
 		expr := p.expression()
 		p.consume(TokenRightParen, "expect ')' after expression")
@@ -443,7 +457,7 @@ func (p *Parser) primary() Expr {
 }
 
 func (p *Parser) literalExpr(value Value) Expr {
-	return LiteralExpr{Value: value, BeginLine: p.previous().Line}
+	return &LiteralExpr{Value: value, BeginLine: p.previous().Line}
 }
 
 func (p *Parser) match(types ...TokenType) bool {

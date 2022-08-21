@@ -1,0 +1,17 @@
+// https://projecteuler.net/problem=2
+
+a: integer = 1;
+b: integer = 2;
+sum: integer = b;
+
+for (; b < 4000000;) {
+    c: integer = a + b;
+    a = b;
+    b = c;
+
+    if (b % 2 == 0) {
+        sum = sum + b;
+    }
+}
+
+print sum;

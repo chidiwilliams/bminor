@@ -1,0 +1,8 @@
+// https://projecteuler.net/problem=1
+sum: integer;
+for (i: integer; i < 1000; i++) {
+    if (i % 3 == 0 || i % 5 == 0) {
+        sum = sum + i;
+    }
+}
+print sum;
