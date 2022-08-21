@@ -14,18 +14,17 @@ func (r runtimeError) Error() string {
 	return fmt.Sprintf("error: %s", r.message)
 }
 
-func NewInterpreter(typeChecker *TypeChecker, stdOut io.Writer) *Interpreter {
+// NewInterpreter returns a new interpreter
+func NewInterpreter(stdOut io.Writer) *Interpreter {
 	return &Interpreter{
-		env:         NewEnvironment[Value](nil),
-		typeChecker: typeChecker,
-		stdOut:      stdOut,
+		env:    NewEnvironment[Value](nil),
+		stdOut: stdOut,
 	}
 }
 
 type Interpreter struct {
 	env          *Environment[Value]
 	enclosingEnv *Environment[Value]
-	typeChecker  *TypeChecker // should this be passed in this way. or should it work similar to the resolved locals in Lox
 	stdOut       io.Writer
 }
 

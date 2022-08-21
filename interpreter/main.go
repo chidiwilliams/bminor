@@ -43,7 +43,7 @@ func Run(source string, stdErr io.Writer, stdOut io.Writer) {
 		return
 	}
 
-	interpreter := NewInterpreter(&typeChecker, stdOut)
+	interpreter := NewInterpreter(stdOut)
 	err = interpreter.Interpret(statements)
 	if err != nil {
 		_, _ = stdErr.Write([]byte(fmt.Sprintf("Error: %s\n", err.Error())))
