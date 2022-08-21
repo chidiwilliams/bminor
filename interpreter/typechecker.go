@@ -299,10 +299,6 @@ func (c *TypeChecker) getType(typeExpr TypeExpr) Type {
 	panic(c.error(typeExpr, "unexpected type: %s", typeExpr))
 }
 
-func (c *TypeChecker) equals(resolvedType Type, declaredType Type) bool {
-	return resolvedType.Equals(declaredType)
-}
-
 // expectExpr panics with a typeError if the given expression type is not equal to the expected type
 func (c *TypeChecker) expectExpr(expr Expr, exprType, expectedType Type) {
 	if !exprType.Equals(expectedType) {

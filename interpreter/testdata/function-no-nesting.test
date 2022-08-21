@@ -1,0 +1,7 @@
+square: function integer ( x: integer ) = {
+    nested: function integer ( y: integer ) = {
+    	return y^2;
+    }
+
+	return x^2;
+}
