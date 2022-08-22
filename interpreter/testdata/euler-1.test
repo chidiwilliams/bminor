@@ -2,7 +2,7 @@
 
 sumMultiples: function integer (n: integer) = {
     sum: integer;
-    for (i: integer; i < 1000; i++) {
+    for (i: integer; i < n; i++) {
         if (i % 3 == 0 || i % 5 == 0) {
             sum = sum + i;
         }
