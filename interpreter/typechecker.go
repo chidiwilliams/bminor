@@ -22,34 +22,18 @@ var (
 	typeVoid    = voidType{}
 )
 
-func NewTypeChecker(statements []Stmt) TypeChecker {
-	return TypeChecker{
-		statements: statements,
-		env:        NewEnvironment[Type](nil),
-	}
+func NewTypeChecker() *TypeChecker {
+	return &TypeChecker{env: NewEnvironment[Type](nil)}
 }
 
 type TypeChecker struct {
-	statements                 []Stmt
 	env                        *Environment[Type]
 	enclosingEnv               *Environment[Type]
 	currentFunctionReturnType  Type
 	hasCurrentFunctionReturned bool
 }
 
-func (c *TypeChecker) Check() error {
-	for _, stmt := range c.statements {
-		err := c.checkStmt(stmt)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// checkStmt performs type checking on the given statement
-func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
+func (c *TypeChecker) Check(statements []Stmt) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			if recovered, ok := r.(typeError); ok {
@@ -62,6 +46,15 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 		}
 	}()
 
+	for _, stmt := range statements {
+		c.checkStmt(stmt)
+	}
+
+	return nil
+}
+
+// checkStmt performs type checking on the given statement
+func (c *TypeChecker) checkStmt(stmt Stmt) {
 	switch stmt := stmt.(type) {
 	case *VarStmt:
 		declaredType := c.getType(stmt.Type)
@@ -81,20 +74,14 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 	case *IfStmt:
 		conditionType := c.resolveExpr(stmt.Condition)
 		c.expectExpr(stmt.Condition, conditionType, typeBoolean)
-		if err := c.checkStmt(stmt.Consequent); err != nil {
-			return err
-		}
+		c.checkStmt(stmt.Consequent)
 		if stmt.Alternative != nil {
-			if err := c.checkStmt(stmt.Alternative); err != nil {
-				return err
-			}
+			c.checkStmt(stmt.Alternative)
 		}
 	case *BlockStmt:
 		c.beginScope()
 		for _, innerStmt := range stmt.Statements {
-			if err := c.checkStmt(innerStmt); err != nil {
-				return err
-			}
+			c.checkStmt(innerStmt)
 		}
 		c.endScope()
 	case *FunctionStmt:
@@ -114,18 +101,16 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 
 		c.currentFunctionReturnType = fnType.(functionType).returnType
 
-		if err := c.checkStmt(stmt.Body); err != nil {
-			return err
-		}
+		c.checkStmt(stmt.Body)
 
 		if c.currentFunctionReturnType != typeVoid && !c.hasCurrentFunctionReturned {
-			return c.error(stmt, "expected function to return value of type '%s'", c.currentFunctionReturnType)
+			panic(c.error(stmt, "expected function to return value of type '%s'", c.currentFunctionReturnType))
 		}
 
 		c.endScope()
 	case *ReturnStmt:
 		if stmt.Value != nil && c.currentFunctionReturnType == typeVoid {
-			return c.error(stmt.Value, "not expecting any return value")
+			panic(c.error(stmt.Value, "not expecting any return value"))
 		}
 		valueType := c.resolveExpr(stmt.Value)
 		c.expectExpr(stmt.Value, valueType, c.currentFunctionReturnType)
@@ -133,13 +118,10 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 	case *ForStmt:
 		conditionType := c.resolveExpr(stmt.Condition)
 		c.expectExpr(stmt.Condition, conditionType, typeBoolean)
-		if err := c.checkStmt(stmt.Body); err != nil {
-			return err
-		}
+		c.checkStmt(stmt.Body)
 	default:
-		return c.error(stmt, fmt.Sprintf("unexpected statement type: %v", stmt))
+		panic(c.error(stmt, fmt.Sprintf("unexpected statement type: %v", stmt)))
 	}
-	return nil
 }
 
 // resolveExpr infers the type of an expression from its (possibly nested)

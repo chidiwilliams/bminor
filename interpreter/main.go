@@ -36,8 +36,8 @@ func Run(source string, stdErr io.Writer, stdOut io.Writer) {
 		return
 	}
 
-	typeChecker := NewTypeChecker(statements)
-	err = typeChecker.Check()
+	typeChecker := NewTypeChecker()
+	err = typeChecker.Check(statements)
 	if err != nil {
 		_, _ = stdErr.Write([]byte(err.Error() + "\n"))
 		return
