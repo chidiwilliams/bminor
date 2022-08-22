@@ -64,21 +64,17 @@ func (i *Interpreter) interpret(stmt Stmt) {
 	case *IfStmt:
 		condition := i.evaluate(stmt.Condition).(BooleanValue)
 		if condition {
-			i.interpret(stmt.Body)
+			i.interpret(stmt.Consequent)
+		} else {
+			if stmt.Alternative != nil {
+				i.interpret(stmt.Alternative)
+			}
 		}
 	case *BlockStmt:
-		i.beginScope()
-		for _, stmt := range stmt.Statements {
-			i.interpret(stmt)
-		}
-		i.endScope()
+		i.interpretBlock(stmt, NewEnvironment(i.env))
 	case *FunctionStmt:
-		params := make([]string, len(stmt.TypeExpr.Params))
-		for i, param := range stmt.TypeExpr.Params {
-			params[i] = param.Name.Lexeme
-		}
-		fnValue := &FunctionValue{Params: params, Body: stmt.Body}
-		i.env.Define(stmt.Name.Lexeme, fnValue)
+		fnValue := FunctionValue{closure: i.env, declaration: stmt}
+		i.env.Define(stmt.Name.Lexeme, &fnValue)
 	case *ReturnStmt:
 		value := i.evaluate(stmt.Value)
 		panic(Return{Value: value})
@@ -88,6 +84,19 @@ func (i *Interpreter) interpret(stmt Stmt) {
 		}
 	default:
 		panic(i.error("unexpected statement type: %s", stmt))
+	}
+}
+
+// interpretBlock interprets the statements in a block within an environment.
+// After interpreting the block, it replaces the interpreter's current environment
+// back to its previous value.
+func (i *Interpreter) interpretBlock(stmt *BlockStmt, env *Environment[Value]) {
+	previous := i.env
+	i.env = env
+	defer func() { i.env = previous }()
+
+	for _, stmt := range stmt.Statements {
+		i.interpret(stmt)
 	}
 }
 
@@ -210,16 +219,6 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 
 func (i *Interpreter) error(format string, any ...any) error {
 	return runtimeError{message: fmt.Sprintf(format, any...)}
-}
-
-func (i *Interpreter) beginScope() {
-	i.enclosingEnv = i.env
-	i.env = NewEnvironment[Value](i.enclosingEnv)
-}
-
-func (i *Interpreter) endScope() {
-	i.env = i.enclosingEnv
-	i.enclosingEnv = i.env.enclosing
 }
 
 func (i *Interpreter) predeclareFunction(name string, callable CallableValue) {

@@ -48,6 +48,7 @@ func (c *TypeChecker) Check() error {
 	return nil
 }
 
+// checkStmt performs type checking on the given statement
 func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -80,8 +81,13 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 	case *IfStmt:
 		conditionType := c.resolveExpr(stmt.Condition)
 		c.expectExpr(stmt.Condition, conditionType, typeBoolean)
-		if err := c.checkStmt(stmt.Body); err != nil {
+		if err := c.checkStmt(stmt.Consequent); err != nil {
 			return err
+		}
+		if stmt.Alternative != nil {
+			if err := c.checkStmt(stmt.Alternative); err != nil {
+				return err
+			}
 		}
 	case *BlockStmt:
 		c.beginScope()
@@ -108,10 +114,8 @@ func (c *TypeChecker) checkStmt(stmt Stmt) (err error) {
 
 		c.currentFunctionReturnType = fnType.(functionType).returnType
 
-		for _, innerStmt := range stmt.Body {
-			if err := c.checkStmt(innerStmt); err != nil {
-				return err
-			}
+		if err := c.checkStmt(stmt.Body); err != nil {
+			return err
 		}
 
 		if c.currentFunctionReturnType != typeVoid && !c.hasCurrentFunctionReturned {

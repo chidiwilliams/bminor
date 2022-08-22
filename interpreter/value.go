@@ -57,11 +57,15 @@ type Return struct {
 	Value Value
 }
 
+// FunctionValue represents a function's declaration and its closure
 type FunctionValue struct {
-	Params []string
-	Body   []Stmt
+	closure     *Environment[Value]
+	declaration *FunctionStmt
 }
 
+// Call interprets the function declaration. It creates a new environment for the call,
+// sets up the values of the function params with the call arguments, and interprets the
+// body of the function.
 func (f *FunctionValue) Call(interpreter *Interpreter, args []Value) (value Value) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -73,25 +77,19 @@ func (f *FunctionValue) Call(interpreter *Interpreter, args []Value) (value Valu
 		}
 	}()
 
-	interpreter.beginScope()
-	for i, param := range f.Params {
-		interpreter.env.Define(param, args[i])
+	callEnv := NewEnvironment(f.closure)
+	for i, param := range f.declaration.TypeExpr.Params {
+		callEnv.Define(param.Name.Lexeme, args[i])
 	}
 
-	for _, stmt := range f.Body {
-		interpreter.interpret(stmt)
-	}
+	interpreter.interpretBlock(f.declaration.Body, callEnv)
 
-	interpreter.endScope()
+	// only reachable from void functions
 	return nil
 }
 
 func (f *FunctionValue) String() string {
-	body := make([]string, len(f.Body))
-	for i, stmt := range f.Body {
-		body[i] = stmt.String()
-	}
-	return fmt.Sprintf("( %s ) {%s\n}", strings.Join(f.Params, ", "), strings.Join(body, "\n"))
+	return f.declaration.String()
 }
 
 type CallableValue interface {

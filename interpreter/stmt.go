@@ -69,9 +69,10 @@ func (b *BlockStmt) String() string {
 }
 
 type IfStmt struct {
-	Condition Expr
-	Body      Stmt
-	BeginLine int
+	Condition   Expr
+	Consequent  Stmt
+	Alternative Stmt
+	BeginLine   int
 }
 
 func (i *IfStmt) StartLine() int {
@@ -79,7 +80,7 @@ func (i *IfStmt) StartLine() int {
 }
 
 func (i *IfStmt) String() string {
-	return fmt.Sprintf("if (%s) {\n%s\n}", i.Condition, i.Body)
+	return fmt.Sprintf("if (%s) {\n%s\n}", i.Condition, i.Consequent)
 }
 
 type ReturnStmt struct {
@@ -96,7 +97,7 @@ func (r *ReturnStmt) String() string {
 }
 
 type FunctionStmt struct {
-	Body      []Stmt
+	Body      *BlockStmt
 	TypeExpr  FunctionTypeExpr
 	Name      Token
 	BeginLine int
@@ -112,13 +113,8 @@ func (f *FunctionStmt) String() string {
 		params[i] = param.String()
 	}
 
-	body := make([]string, len(f.Body))
-	for i, stmt := range f.Body {
-		body[i] = stmt.String()
-	}
-
 	return fmt.Sprintf("%s: function %s ( %s ) {\n%s}",
-		f.Name.Lexeme, f.TypeExpr.ReturnType, strings.Join(params, ", "), strings.Join(body, "\n"))
+		f.Name.Lexeme, f.TypeExpr.ReturnType, strings.Join(params, ", "), f.Body)
 }
 
 type ForStmt struct {

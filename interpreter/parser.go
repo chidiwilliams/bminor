@@ -107,11 +107,17 @@ func (p *Parser) ifStmt() Stmt {
 	p.consume(TokenLeftParen, "expect '(' after 'if'")
 	condition := p.expression()
 	p.consume(TokenRightParen, "expect ')' after if condition")
-	body := p.declaration()
-	return &IfStmt{Condition: condition, Body: body, BeginLine: ifToken.Line}
+	consequent := p.declaration()
+
+	var alternative Stmt
+	if p.match(TokenElse) {
+		alternative = p.declaration()
+	}
+
+	return &IfStmt{Condition: condition, Consequent: consequent, Alternative: alternative, BeginLine: ifToken.Line}
 }
 
-func (p *Parser) blockStmt() Stmt {
+func (p *Parser) blockStmt() *BlockStmt {
 	brace := p.previous()
 	statements := make([]Stmt, 0)
 
@@ -270,14 +276,8 @@ func (p *Parser) typeExpr(isArrayReference bool) TypeExpr {
 func (p *Parser) function(name Token, functionTypeExpr FunctionTypeExpr) Stmt {
 	fnToken := p.previous()
 	p.consume(TokenLeftBrace, "expect '{' before function body")
-
-	statements := make([]Stmt, 0)
-	for !p.match(TokenRightBrace) && !p.isAtEnd() {
-		stmt := p.declaration()
-		statements = append(statements, stmt)
-	}
-
-	return &FunctionStmt{Name: name, TypeExpr: functionTypeExpr, Body: statements, BeginLine: fnToken.Line}
+	body := p.blockStmt()
+	return &FunctionStmt{Name: name, TypeExpr: functionTypeExpr, Body: body, BeginLine: fnToken.Line}
 }
 
 func (p *Parser) expression() Expr {
