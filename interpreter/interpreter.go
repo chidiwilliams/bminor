@@ -150,7 +150,14 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 		right := i.evaluate(expr.Right)
 		switch expr.Operator.TokenType {
 		case TokenPlus:
-			return left.(IntegerValue) + right.(IntegerValue)
+			switch left := left.(type) {
+			case IntegerValue:
+				return left + right.(IntegerValue)
+			case StringValue:
+				return left + right.(StringValue)
+			case CharValue:
+				return left + right.(CharValue)
+			}
 		case TokenMinus:
 			return left.(IntegerValue) - right.(IntegerValue)
 		case TokenStar:

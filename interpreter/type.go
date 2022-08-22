@@ -16,7 +16,7 @@ type Type interface {
 
 // newAtomicType returns a new atomic type based on an underlying Go type.
 func newAtomicType[UnderlyingGoType Value](name string) Type {
-	return atomicType[UnderlyingGoType]{name: name}
+	return &atomicType[UnderlyingGoType]{name: name}
 }
 
 // atomicType represents one of the four atomic types
@@ -26,13 +26,12 @@ type atomicType[UnderlyingGoType Value] struct {
 	zeroValue UnderlyingGoType
 }
 
-func (t atomicType[UnderlyingGoType]) String() string {
+func (t *atomicType[UnderlyingGoType]) String() string {
 	return t.name
 }
 
-func (t atomicType[UnderlyingGoType]) Equals(other Type) bool {
-	_, ok := other.(atomicType[UnderlyingGoType])
-	return ok
+func (t *atomicType[UnderlyingGoType]) Equals(other Type) bool {
+	return t == other
 }
 
 // ZeroValue returns the default value to be assigned to
@@ -44,7 +43,7 @@ func (t atomicType[UnderlyingGoType]) Equals(other Type) bool {
 //
 // The zero value of an atomic type is the zero value of
 // its underlying Go type.
-func (t atomicType[UnderlyingGoType]) ZeroValue() Value {
+func (t *atomicType[UnderlyingGoType]) ZeroValue() Value {
 	return t.zeroValue
 }
 

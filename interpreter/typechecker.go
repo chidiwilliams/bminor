@@ -173,13 +173,19 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 		c.expectExpr(expr.Value, valueType, expectedValueType)
 		return expectedValueType
 	case *BinaryExpr:
-		left := c.resolveExpr(expr.Left)
-		right := c.resolveExpr(expr.Right)
-		if left.Equals(typeBoolean) || right.Equals(typeBoolean) {
-			panic(c.error(expr, "cannot perform operation on boolean type"))
+		leftType := c.resolveExpr(expr.Left)
+		rightType := c.resolveExpr(expr.Right)
+
+		switch expr.Operator.TokenType {
+		case TokenPlus:
+			c.expectExpr(expr.Left, leftType, typeInteger, typeString, typeChar)
+		case TokenMinus, TokenStar, TokenSlash, TokenPercent,
+			TokenCaret, TokenLess, TokenLessEqual, TokenGreater,
+			TokenGreaterEqual:
+			c.expectExpr(expr.Left, leftType, typeInteger)
 		}
 
-		if !left.Equals(right) {
+		if !leftType.Equals(rightType) {
 			panic(c.error(expr.Left, "'%s' and '%s' are of different types", expr.Left, expr.Right))
 		}
 
@@ -188,10 +194,6 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 			TokenGreaterEqual, TokenEqualEqual, TokenBangEqual:
 			return typeBoolean
 		default:
-			if expr.Operator.TokenType == TokenPlus && left.Equals(typeString) {
-				panic(c.error(expr.Left, "cannot perform operation on string type"))
-			}
-
 			return typeInteger
 		}
 	case *PrefixExpr:
@@ -286,10 +288,20 @@ func (c *TypeChecker) getType(typeExpr TypeExpr) Type {
 }
 
 // expectExpr panics with a typeError if the given expression type is not equal to the expected type
-func (c *TypeChecker) expectExpr(expr Expr, exprType, expectedType Type) {
-	if !exprType.Equals(expectedType) {
-		panic(c.error(expr, "expected '%s' to be of type '%s', but got '%s'", expr, expectedType, exprType))
+func (c *TypeChecker) expectExpr(expr Expr, exprType Type, expectedTypes ...Type) {
+	for _, expectedType := range expectedTypes {
+		if exprType.Equals(expectedType) {
+			return
+		}
 	}
+
+	var err error
+	if len(expectedTypes) == 1 {
+		err = c.error(expr, "expected '%s' to be of type '%s', but got '%s'", expr, expectedTypes[0], exprType)
+	} else {
+		err = c.error(expr, "expected '%s' to be of type %s, but got '%s'", expr, expectedTypes, exprType)
+	}
+	panic(err)
 }
 
 // error returns a typeError at the given line

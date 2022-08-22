@@ -1,0 +1,2 @@
+err:Error on line 1: expected 'dfjaskjf' to be of type 'integer', but got 'string'
+err:
