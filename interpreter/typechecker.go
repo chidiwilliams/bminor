@@ -28,7 +28,6 @@ func NewTypeChecker() *TypeChecker {
 
 type TypeChecker struct {
 	env                        *Environment[Type]
-	enclosingEnv               *Environment[Type]
 	currentFunctionReturnType  Type
 	hasCurrentFunctionReturned bool
 }
@@ -79,11 +78,14 @@ func (c *TypeChecker) checkStmt(stmt Stmt) {
 			c.checkStmt(stmt.Alternative)
 		}
 	case *BlockStmt:
-		c.beginScope()
+		previous := c.env
+		c.env = NewEnvironment(previous)
+
 		for _, innerStmt := range stmt.Statements {
 			c.checkStmt(innerStmt)
 		}
-		c.endScope()
+
+		c.env = previous
 	case *FunctionStmt:
 		if c.currentFunctionReturnType != nil {
 			panic(c.error(stmt, "function definitions may not be nested"))
@@ -92,7 +94,8 @@ func (c *TypeChecker) checkStmt(stmt Stmt) {
 		fnType := c.getType(stmt.TypeExpr)
 		c.env.Define(stmt.Name.Lexeme, fnType)
 
-		c.beginScope()
+		previous := c.env
+		c.env = NewEnvironment(previous)
 		c.hasCurrentFunctionReturned = false
 
 		for _, param := range stmt.TypeExpr.Params {
@@ -107,7 +110,7 @@ func (c *TypeChecker) checkStmt(stmt Stmt) {
 			panic(c.error(stmt, "expected function to return value of type '%s'", c.currentFunctionReturnType))
 		}
 
-		c.endScope()
+		c.env = previous
 	case *ReturnStmt:
 		if stmt.Value != nil && c.currentFunctionReturnType == typeVoid {
 			panic(c.error(stmt.Value, "not expecting any return value"))
@@ -307,14 +310,4 @@ func (c *TypeChecker) expectExpr(expr Expr, exprType Type, expectedTypes ...Type
 // error returns a typeError at the given line
 func (c *TypeChecker) error(node Node, format string, any ...any) error {
 	return typeError{line: node.StartLine(), message: fmt.Sprintf(format, any...)}
-}
-
-func (c *TypeChecker) beginScope() {
-	c.enclosingEnv = c.env
-	c.env = NewEnvironment[Type](c.enclosingEnv)
-}
-
-func (c *TypeChecker) endScope() {
-	c.env = c.enclosingEnv
-	c.enclosingEnv = c.env.enclosing
 }

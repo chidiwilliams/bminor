@@ -26,9 +26,8 @@ func NewInterpreter(stdOut io.Writer) *Interpreter {
 }
 
 type Interpreter struct {
-	env          *Environment[Value]
-	enclosingEnv *Environment[Value]
-	stdOut       io.Writer
+	env    *Environment[Value]
+	stdOut io.Writer
 }
 
 func (i *Interpreter) Interpret(statements []Stmt) (err error) {
