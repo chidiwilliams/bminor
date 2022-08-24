@@ -118,7 +118,7 @@ func (c *TypeChecker) checkStmt(stmt Stmt) {
 		valueType := c.resolveExpr(stmt.Value)
 		c.expectExpr(stmt.Value, valueType, c.currentFunctionReturnType)
 		c.hasCurrentFunctionReturned = true
-	case *ForStmt:
+	case *WhileStmt:
 		conditionType := c.resolveExpr(stmt.Condition)
 		c.expectExpr(stmt.Condition, conditionType, typeBoolean)
 		c.checkStmt(stmt.Body)
@@ -221,8 +221,8 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 		return typeBoolean
 	case *AssignExpr:
 		valueType := c.resolveExpr(expr.Value)
-		nameType := c.env.Get(expr.Name.Lexeme)
-		c.expectExpr(expr.Value, valueType, nameType)
+		varType := c.env.Get(expr.Name.Lexeme)
+		c.expectExpr(expr.Value, valueType, varType)
 		return valueType
 	case *CallExpr:
 		calleeType, ok := c.resolveExpr(expr.Callee).(functionType)
@@ -245,12 +245,12 @@ func (c *TypeChecker) resolveLookup(object, name Expr) Type {
 	objectType := c.resolveExpr(object)
 	switch objectType := objectType.(type) {
 	case arrayType:
-		nameType := c.resolveExpr(name)
-		c.expectExpr(name, nameType, typeInteger)
+		indexType := c.resolveExpr(name)
+		c.expectExpr(name, indexType, typeInteger)
 		return objectType.elementType
 	case mapType:
-		nameType := c.resolveExpr(name)
-		c.expectExpr(name, nameType, objectType.keyType)
+		indexType := c.resolveExpr(name)
+		c.expectExpr(name, indexType, objectType.keyType)
 		return objectType.valueType
 	default:
 		panic(c.error(object, "can only index maps and arrays"))

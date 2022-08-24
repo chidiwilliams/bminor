@@ -77,7 +77,7 @@ func (i *Interpreter) interpret(stmt Stmt) {
 	case *ReturnStmt:
 		value := i.evaluate(stmt.Value)
 		panic(Return{Value: value})
-	case *ForStmt:
+	case *WhileStmt:
 		for i.evaluate(stmt.Condition).(BooleanValue) {
 			i.interpret(stmt.Body)
 		}

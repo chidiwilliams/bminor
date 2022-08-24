@@ -117,16 +117,16 @@ func (f *FunctionStmt) String() string {
 		f.Name.Lexeme, f.TypeExpr.ReturnType, strings.Join(params, ", "), f.Body)
 }
 
-type ForStmt struct {
+type WhileStmt struct {
 	Condition Expr
 	Body      Stmt
 	BeginLine int
 }
 
-func (f *ForStmt) String() string {
+func (f *WhileStmt) String() string {
 	return fmt.Sprintf("for (%s) %s", f.Condition, f.Body)
 }
 
-func (f *ForStmt) StartLine() int {
+func (f *WhileStmt) StartLine() int {
 	return f.BeginLine
 }

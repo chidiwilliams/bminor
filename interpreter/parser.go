@@ -185,7 +185,7 @@ func (p *Parser) forStmt() Stmt {
 		condition = &LiteralExpr{Value: BooleanValue(true)}
 	}
 
-	body = &ForStmt{Condition: condition, Body: body}
+	body = &WhileStmt{Condition: condition, Body: body}
 
 	if initializer != nil {
 		body = &BlockStmt{Statements: []Stmt{initializer, body}, BeginLine: forToken.Line}
