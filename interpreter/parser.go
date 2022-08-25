@@ -203,7 +203,11 @@ func (p *Parser) varDecl(name Token) Stmt {
 		if functionTypeExpr, ok := typeExpr.(FunctionTypeExpr); ok {
 			return p.function(name, functionTypeExpr)
 		} else {
-			initializer = p.expression()
+			if p.match(TokenLeftBrace) {
+				initializer = p.mapOrArrayExpr()
+			} else {
+				initializer = p.expression()
+			}
 		}
 	} else {
 		if _, ok := typeExpr.(FunctionTypeExpr); ok {
@@ -213,6 +217,37 @@ func (p *Parser) varDecl(name Token) Stmt {
 
 	p.consume(TokenSemicolon, "expect semicolon after variable declaration")
 	return &VarStmt{Name: name, Initializer: initializer, Type: typeExpr, IsFnPrototype: isFnPrototype, BeginLine: name.Line}
+}
+
+func (p *Parser) mapOrArrayExpr() Expr {
+	brace := p.previous()
+	if p.match(TokenRightBrace) {
+		return &MapExpr{BeginLine: brace.Line}
+	}
+
+	firstKeyOrElem := p.expression()
+
+	if p.match(TokenColon) {
+		pairs := make([]Pair, 0)
+		firstValue := p.expression()
+		pairs = append(pairs, Pair{Key: firstKeyOrElem, Value: firstValue})
+		for p.match(TokenComma) {
+			key := p.expression()
+			p.match(TokenColon)
+			value := p.expression()
+			pairs = append(pairs, Pair{Key: key, Value: value})
+		}
+		p.consume(TokenRightBrace, "expect '}' after map literal")
+		return &MapExpr{Pairs: pairs, BeginLine: brace.Line}
+	}
+
+	elements := make([]Expr, 0)
+	elements = append(elements, firstKeyOrElem)
+	for p.match(TokenComma) {
+		elements = append(elements, p.expression())
+	}
+	p.consume(TokenRightBrace, "expect '}' after array literal")
+	return &ArrayExpr{Elements: elements, BeginLine: brace.Line}
 }
 
 func (p *Parser) typeExpr(isArrayReference bool) TypeExpr {
@@ -425,35 +460,6 @@ func (p *Parser) primary() Expr {
 		return p.literalExpr(BooleanValue(false))
 	case p.match(TokenTrue):
 		return p.literalExpr(BooleanValue(true))
-	case p.match(TokenLeftBrace):
-		brace := p.previous()
-		if p.match(TokenRightBrace) {
-			return &MapExpr{BeginLine: brace.Line}
-		}
-
-		firstKeyOrElem := p.expression()
-
-		if p.match(TokenColon) {
-			pairs := make([]Pair, 0)
-			firstValue := p.expression()
-			pairs = append(pairs, Pair{Key: firstKeyOrElem, Value: firstValue})
-			for p.match(TokenComma) {
-				key := p.expression()
-				p.match(TokenColon)
-				value := p.expression()
-				pairs = append(pairs, Pair{Key: key, Value: value})
-			}
-			p.consume(TokenRightBrace, "expect '}' after map literal")
-			return &MapExpr{Pairs: pairs, BeginLine: brace.Line}
-		}
-
-		elements := make([]Expr, 0)
-		elements = append(elements, firstKeyOrElem)
-		for p.match(TokenComma) {
-			elements = append(elements, p.expression())
-		}
-		p.consume(TokenRightBrace, "expect '}' after array literal")
-		return &ArrayExpr{Elements: elements, BeginLine: brace.Line}
 	case p.match(TokenLeftParen):
 		expr := p.expression()
 		p.consume(TokenRightParen, "expect ')' after expression")

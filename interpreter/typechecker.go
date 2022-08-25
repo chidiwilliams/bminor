@@ -18,8 +18,8 @@ var (
 	typeBoolean = newAtomicType[BooleanValue]("boolean")
 	typeChar    = newAtomicType[CharValue]("char")
 	typeString  = newAtomicType[StringValue]("string")
-	typeAny     = anyType{}
-	typeVoid    = voidType{}
+	typeAny     = &anyType{}
+	typeVoid    = &voidType{}
 )
 
 func NewTypeChecker() *TypeChecker {
@@ -102,7 +102,7 @@ func (c *TypeChecker) checkStmt(stmt Stmt) {
 			c.env.Define(param.Name.Lexeme, c.getType(param.Type))
 		}
 
-		c.currentFunctionReturnType = fnType.(functionType).returnType
+		c.currentFunctionReturnType = fnType.(*functionType).returnType
 
 		c.checkStmt(stmt.Body)
 
@@ -225,7 +225,7 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 		c.expectExpr(expr.Value, valueType, varType)
 		return valueType
 	case *CallExpr:
-		calleeType, ok := c.resolveExpr(expr.Callee).(functionType)
+		calleeType, ok := c.resolveExpr(expr.Callee).(*functionType)
 		if !ok {
 			panic(c.error(expr.Callee, "%s is not a function", expr.Callee))
 		}
@@ -244,11 +244,11 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 func (c *TypeChecker) resolveLookup(object, name Expr) Type {
 	objectType := c.resolveExpr(object)
 	switch objectType := objectType.(type) {
-	case arrayType:
+	case *arrayType:
 		indexType := c.resolveExpr(name)
 		c.expectExpr(name, indexType, typeInteger)
 		return objectType.elementType
-	case mapType:
+	case *mapType:
 		indexType := c.resolveExpr(name)
 		c.expectExpr(name, indexType, objectType.keyType)
 		return objectType.valueType
@@ -271,7 +271,7 @@ func (c *TypeChecker) getType(typeExpr TypeExpr) Type {
 			return typeInteger
 		}
 	case VoidTypeExpr:
-		return voidType{}
+		return typeVoid
 	case ArrayTypeExpr:
 		elementType := c.getType(typeExpr.ElementType)
 		return newArrayType(elementType, typeExpr.Length, typeExpr.Reference)

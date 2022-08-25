@@ -142,6 +142,7 @@ func (i *Interpreter) evaluate(expr Expr) Value {
 			}
 		}
 		if mapValue, ok := objectValue.(MapValue); ok {
+			// TODO: somehow return the zero value of the map type
 			return mapValue[name]
 		}
 	case *BinaryExpr:
