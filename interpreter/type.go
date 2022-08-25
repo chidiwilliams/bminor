@@ -58,16 +58,20 @@ type arrayType struct {
 }
 
 func (a *arrayType) String() string {
-	return fmt.Sprintf("array %s", a.elementType)
+	return fmt.Sprintf("array [%s] %s", a.elementType)
 }
 
+// Equals return true if both array types are equal. Two array
+// types are equal if their element types are equal. If neither
+// of them is a reference type, their lengths must also be equal.
 func (a *arrayType) Equals(other Type) bool {
 	otherArrayType, ok := other.(*arrayType)
 	if !ok {
 		return false
 	}
 
-	return a.elementType.Equals(otherArrayType.elementType)
+	return (a.reference || otherArrayType.reference || a.length == otherArrayType.length) &&
+		a.elementType.Equals(otherArrayType.elementType)
 }
 
 func (a *arrayType) ZeroValue() Value {
