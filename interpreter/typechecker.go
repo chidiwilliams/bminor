@@ -232,7 +232,7 @@ func (c *TypeChecker) resolveExpr(expr Expr) Type {
 
 		for i, arg := range expr.Arguments {
 			argType := c.resolveExpr(arg)
-			expectedType := calleeType.paramTypes[i].Type
+			expectedType := calleeType.paramTypes[i]
 			c.expectExpr(arg, argType, expectedType)
 		}
 
@@ -280,9 +280,9 @@ func (c *TypeChecker) getType(typeExpr TypeExpr) Type {
 		valueType := c.getType(typeExpr.ValueType)
 		return newMapType(keyType, valueType)
 	case FunctionTypeExpr:
-		paramTypes := make([]ParamType, len(typeExpr.Params))
+		paramTypes := make([]Type, len(typeExpr.Params))
 		for i, param := range typeExpr.Params {
-			paramTypes[i] = ParamType{Name: param.Name, Type: c.getType(param.Type)}
+			paramTypes[i] = c.getType(param.Type)
 		}
 		returnType := c.getType(typeExpr.ReturnType)
 		return newFunctionType(paramTypes, returnType)

@@ -58,7 +58,7 @@ type arrayType struct {
 }
 
 func (a *arrayType) String() string {
-	return fmt.Sprintf("array [%s] %s", a.elementType)
+	return fmt.Sprintf("array [%d] %s", a.length, a.elementType)
 }
 
 // Equals return true if both array types are equal. Two array
@@ -139,18 +139,13 @@ func (v *voidType) String() string {
 	return "void"
 }
 
-func newFunctionType(paramTypes []ParamType, returnType Type) Type {
+func newFunctionType(paramTypes []Type, returnType Type) Type {
 	return &functionType{paramTypes: paramTypes, returnType: returnType}
 }
 
 type functionType struct {
-	paramTypes []ParamType
+	paramTypes []Type
 	returnType Type
-}
-
-type ParamType struct {
-	Name Token
-	Type Type
 }
 
 func (f *functionType) Equals(other Type) bool {
@@ -165,7 +160,7 @@ func (f *functionType) Equals(other Type) bool {
 		return false
 	}
 	for i, paramType := range f.paramTypes {
-		if !paramType.Type.Equals(otherFunctionType.paramTypes[i].Type) {
+		if !paramType.Equals(otherFunctionType.paramTypes[i]) {
 			return false
 		}
 	}
@@ -179,7 +174,7 @@ func (f *functionType) ZeroValue() Value {
 func (f *functionType) String() string {
 	params := make([]string, len(f.paramTypes))
 	for i, paramType := range (f).paramTypes {
-		params[i] = paramType.Type.String()
+		params[i] = paramType.String()
 	}
 	return fmt.Sprintf("function %s ( %s )", f.returnType, strings.Join(params, ", "))
 }
